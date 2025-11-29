@@ -20,6 +20,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 
 interface Message {
@@ -33,6 +39,17 @@ export default function Home() {
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+
+  const optimizersByCategory = React.useMemo(() => {
+    return optimizers.reduce((acc, optimizer) => {
+      const { category } = optimizer;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(optimizer);
+      return acc;
+    }, {} as Record<string, Optimizer[]>);
+  }, []);
 
   React.useEffect(() => {
     if (scrollAreaRef.current) {
@@ -85,31 +102,40 @@ export default function Home() {
             <p className="text-sm text-muted-foreground mt-1">Select a profile for your task</p>
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-4 space-y-2">
-              {optimizers.map((optimizer) => (
-                <Card
-                  key={optimizer.id}
-                  className={cn(
-                    "cursor-pointer transition-all hover:shadow-md",
-                    selectedOptimizer?.id === optimizer.id && "ring-2 ring-primary"
-                  )}
-                  onClick={() => {
-                    setSelectedOptimizer(optimizer);
-                    setMessages([]);
-                  }}
-                >
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-base flex justify-between items-start">
-                      {optimizer.name}
-                      <Badge variant={optimizer.status === 'Published' ? 'default' : 'outline'}>
-                        {optimizer.status}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription className="text-xs line-clamp-2">{optimizer.description}</CardDescription>
-                  </CardHeader>
-                </Card>
+            <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} className="w-full px-4">
+              {Object.entries(optimizersByCategory).map(([category, optimizers]) => (
+                <AccordionItem value={category} key={category}>
+                  <AccordionTrigger className="text-sm font-medium hover:no-underline">{category}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                    {optimizers.map((optimizer) => (
+                      <Card
+                        key={optimizer.id}
+                        className={cn(
+                          "cursor-pointer transition-all hover:shadow-md",
+                          selectedOptimizer?.id === optimizer.id && "ring-2 ring-primary"
+                        )}
+                        onClick={() => {
+                          setSelectedOptimizer(optimizer);
+                          setMessages([]);
+                        }}
+                      >
+                        <CardHeader className="p-3">
+                          <CardTitle className="text-sm flex justify-between items-start">
+                            {optimizer.name}
+                            <Badge variant={optimizer.status === 'Published' ? 'default' : 'outline'}>
+                              {optimizer.status}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="text-xs line-clamp-2">{optimizer.description}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           </ScrollArea>
         </aside>
 

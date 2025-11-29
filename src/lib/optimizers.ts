@@ -8,6 +8,7 @@ export const optimizers: Optimizer[] = [
     description: 'Generates LinkedIn posts optimized for B2B founders.',
     language: 'Spanish',
     status: 'Published',
+    category: 'Social Media',
     model: {
       provider: 'OpenAI',
       model: 'gpt-4-turbo',
@@ -39,6 +40,7 @@ export const optimizers: Optimizer[] = [
     description: 'Generates tweets based on current trends.',
     language: 'English',
     status: 'Published',
+    category: 'Social Media',
     model: {
       provider: 'Anthropic',
       model: 'claude-3-sonnet',
@@ -66,6 +68,7 @@ export const optimizers: Optimizer[] = [
     description: 'Transforms key phrases into image prompts for Midjourney.',
     language: 'English',
     status: 'Draft',
+    category: 'Image Generation',
     model: {
       provider: 'Google',
       model: 'gemini-1.5-pro',

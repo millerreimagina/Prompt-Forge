@@ -5,6 +5,7 @@ export type Optimizer = {
   description: string;
   language: string;
   status: 'Published' | 'Draft';
+  category: string;
   model: {
     provider: string;
     model: string;
