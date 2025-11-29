@@ -38,6 +38,7 @@ export async function getOptimizer(
   db: Firestore,
   id: string
 ): Promise<Optimizer | null> {
+  if (!id) return null;
   const docRef = doc(db, 'optimizers', id);
   const snapshot = await getDoc(docRef).catch((serverError) => {
     const permissionError = new FirestorePermissionError({

@@ -10,6 +10,11 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { getFirestore } from 'firebase-admin/firestore';
+import {getOptimizer} from '@/lib/optimizers-service.server';
+import { definePrompt, generate } from 'genkit/ai';
+import { Optimizer } from '@/lib/types';
+
 
 const GenerateOptimizedContentInputSchema = z.object({
   optimizerId: z.string().describe('The ID of the selected Optimizer.'),
@@ -26,18 +31,8 @@ export async function generateOptimizedContent(input: GenerateOptimizedContentIn
   return generateOptimizedContentFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateOptimizedContentPrompt',
-  input: {schema: GenerateOptimizedContentInputSchema},
-  output: {schema: GenerateOptimizedContentOutputSchema},
-  prompt: `You are an AI assistant specializing in content optimization. You will receive a user input and an Optimizer ID. Your task is to generate content optimized according to the style, rules, and knowledge base of the selected Optimizer.
-
-Optimizer ID: {{{optimizerId}}}
-User Input: {{{userInput}}}
-
-Output:
-`, //The prompt is intentionally left simple and depends on external services to fetch optimizer details based on the optimizerId. See the flow implementation below.
-});
+// This is a dynamic prompt that will be constructed inside the flow
+// so we don't need a predefined handlebars prompt here.
 
 const generateOptimizedContentFlow = ai.defineFlow(
   {
@@ -45,10 +40,33 @@ const generateOptimizedContentFlow = ai.defineFlow(
     inputSchema: GenerateOptimizedContentInputSchema,
     outputSchema: GenerateOptimizedContentOutputSchema,
   },
-  async input => {
-    //TODO: Here, we would fetch the Optimizer configuration (system prompt, KB, model config, etc.) based on the optimizerId using a service function.
-    //For this example we proceed with a basic prompt call using only user input.
-    const {output} = await prompt(input);
-    return {optimizedContent: output!.optimizedContent};
+  async (input) => {
+    
+    const firestore = getFirestore();
+    const optimizer = await getOptimizer(firestore, input.optimizerId);
+
+    if (!optimizer) {
+        throw new Error(`Optimizer with ID ${input.optimizerId} not found.`);
+    }
+
+    const { systemPrompt, model: modelConfig, generationParams } = optimizer;
+
+    // Construct a dynamic prompt
+    const prompt = definePrompt({
+        name: 'dynamicGenerateContentPrompt',
+        system: systemPrompt,
+        input: { schema: z.string() },
+        output: { schema: z.object({ optimizedContent: z.string() }) },
+        config: {
+            model: ai.model(modelConfig.model),
+            temperature: modelConfig.temperature,
+            maxOutputTokens: modelConfig.maxTokens,
+            topP: modelConfig.topP,
+        },
+    });
+
+    const { output } = await prompt(input.userInput);
+
+    return { optimizedContent: output!.optimizedContent };
   }
 );
