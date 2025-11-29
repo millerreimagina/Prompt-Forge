@@ -12,7 +12,6 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { getFirestore } from 'firebase-admin/firestore';
 import {getOptimizer} from '@/lib/optimizers-service.server';
-import { definePrompt, generate } from 'genkit/ai';
 import { Optimizer } from '@/lib/types';
 
 
@@ -49,10 +48,10 @@ const generateOptimizedContentFlow = ai.defineFlow(
         throw new Error(`Optimizer with ID ${input.optimizerId} not found.`);
     }
 
-    const { systemPrompt, model: modelConfig, generationParams } = optimizer;
+    const { systemPrompt, model: modelConfig } = optimizer;
 
     // Construct a dynamic prompt
-    const prompt = definePrompt({
+    const prompt = ai.definePrompt({
         name: 'dynamicGenerateContentPrompt',
         system: systemPrompt,
         input: { schema: z.string() },
