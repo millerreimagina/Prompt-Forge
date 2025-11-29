@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/accordion";
 import { useFirestore } from "@/firebase";
 import { getOptimizers } from "@/lib/optimizers-service";
-
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Message {
   role: "user" | "assistant";
@@ -40,29 +40,45 @@ const Avatar = ({ Icon }: { Icon: React.ElementType }) => (
   </div>
 );
 
+const ALL_ORGANIZATIONS: Optimizer['organization'][] = ['Reimagina', 'Trend Riders', 'Personal'];
 
 export default function Home() {
-  const [optimizers, setOptimizers] = React.useState<Optimizer[]>([]);
+  const [allOptimizers, setAllOptimizers] = React.useState<Optimizer[]>([]);
   const [selectedOptimizer, setSelectedOptimizer] = React.useState<Optimizer | null>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const firestore = useFirestore();
+  const [selectedOrganizations, setSelectedOrganizations] = React.useState<Optimizer['organization'][]>([]);
+
 
   React.useEffect(() => {
     if (firestore) {
       getOptimizers(firestore).then(fetchedOptimizers => {
-        setOptimizers(fetchedOptimizers);
-        if (fetchedOptimizers.length > 0) {
-          setSelectedOptimizer(fetchedOptimizers[0]);
-        }
+        setAllOptimizers(fetchedOptimizers);
       });
     }
   }, [firestore]);
   
+  const filteredOptimizers = React.useMemo(() => {
+    const published = allOptimizers.filter(opt => opt.status === 'Published');
+    if (selectedOrganizations.length === 0) {
+      return published;
+    }
+    return published.filter(opt => selectedOrganizations.includes(opt.organization));
+  }, [allOptimizers, selectedOrganizations]);
+
+  React.useEffect(() => {
+    if (filteredOptimizers.length > 0 && !filteredOptimizers.some(opt => opt.id === selectedOptimizer?.id)) {
+      setSelectedOptimizer(filteredOptimizers[0]);
+    } else if (filteredOptimizers.length === 0) {
+      setSelectedOptimizer(null);
+    }
+  }, [filteredOptimizers, selectedOptimizer]);
+
   const optimizersByCategory = React.useMemo(() => {
-    return optimizers.reduce((acc, optimizer) => {
+    return filteredOptimizers.reduce((acc, optimizer) => {
       const { category } = optimizer;
       if (!acc[category]) {
         acc[category] = [];
@@ -70,7 +86,7 @@ export default function Home() {
       acc[category].push(optimizer);
       return acc;
     }, {} as Record<string, Optimizer[]>);
-  }, [optimizers]);
+  }, [filteredOptimizers]);
 
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   
@@ -123,17 +139,44 @@ export default function Home() {
     }
   };
 
+  const handleOrganizationChange = (organization: Optimizer['organization'], checked: boolean) => {
+    setSelectedOrganizations(prev => {
+      if (checked) {
+        return [...prev, organization];
+      } else {
+        return prev.filter(org => org !== organization);
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <Header />
       <main className="flex flex-1 overflow-hidden">
         <aside className="w-80 border-r bg-card hidden md:flex flex-col">
+          <div className="p-4 border-b">
+            <h2 className="text-lg font-semibold tracking-tight">Organizations</h2>
+            <div className="space-y-2 mt-3">
+              {ALL_ORGANIZATIONS.map(org => (
+                <div key={org} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`org-${org}`}
+                    checked={selectedOrganizations.includes(org)}
+                    onCheckedChange={(checked) => handleOrganizationChange(org, !!checked)}
+                  />
+                  <Label htmlFor={`org-${org}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {org}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="p-4">
             <h2 className="text-xl font-semibold tracking-tight">Optimizers</h2>
             <p className="text-sm text-muted-foreground mt-1">Select a profile for your task</p>
           </div>
           <ScrollArea className="flex-1">
-            <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} className="w-full px-4">
+            <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} value={Object.keys(optimizersByCategory)} className="w-full px-4">
               {Object.entries(optimizersByCategory).map(([category, optimizers]) => (
                 <AccordionItem value={category} key={category}>
                   <AccordionTrigger className="text-sm font-medium hover:no-underline">{category}</AccordionTrigger>
