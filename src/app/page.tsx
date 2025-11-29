@@ -39,7 +39,7 @@ export default function Home() {
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
-
+  
   const optimizersByCategory = React.useMemo(() => {
     return optimizers.reduce((acc, optimizer) => {
       const { category } = optimizer;
@@ -51,6 +51,10 @@ export default function Home() {
     }, {} as Record<string, Optimizer[]>);
   }, []);
 
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
+    selectedOptimizer ? selectedOptimizer.category : Object.keys(optimizersByCategory)[0]
+  );
+  
   React.useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
@@ -59,7 +63,13 @@ export default function Home() {
       });
     }
   }, [messages]);
-  
+
+  React.useEffect(() => {
+    if (selectedOptimizer) {
+      setSelectedCategory(selectedOptimizer.category);
+    }
+  }, [selectedOptimizer]);
+
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim() || !selectedOptimizer || isLoading) return;
@@ -141,16 +151,41 @@ export default function Home() {
 
         <div className="flex-1 flex flex-col">
           <div className="border-b p-4 flex items-center justify-between">
-            <div className="md:hidden">
+            <div className="md:hidden flex gap-2 w-full">
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-1/2 justify-between">
+                    {selectedCategory || "Select Category"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                  {Object.keys(optimizersByCategory).map((category) => (
+                    <DropdownMenuItem
+                      key={category}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        const firstOptimizerInCategory = optimizersByCategory[category][0];
+                        if (firstOptimizerInCategory) {
+                          setSelectedOptimizer(firstOptimizerInCategory);
+                        }
+                        setMessages([]);
+                      }}
+                    >
+                      {category}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button variant="outline" className="w-1/2 justify-between" disabled={!selectedCategory}>
                     {selectedOptimizer ? selectedOptimizer.name : "Select Optimizer"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
-                  {optimizers.map((optimizer) => (
+                  {selectedCategory && optimizersByCategory[selectedCategory]?.map((optimizer) => (
                     <DropdownMenuItem
                       key={optimizer.id}
                       onClick={() => {
