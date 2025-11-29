@@ -12,6 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import type { Optimizer } from "@/lib/types";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
+import { useAuth, useFirestore } from "@/firebase";
+import { signInWithEmailAndPassword, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from "firebase/firestore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +27,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useFirestore } from "@/firebase";
 import { getOptimizers } from "@/lib/optimizers-service";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -49,6 +51,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const firestore = useFirestore();
+  const auth = useAuth();
+  const [user, setUser] = React.useState<FirebaseUser | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = React.useState<Optimizer['organization'][]>([]);
 
 
@@ -59,6 +63,21 @@ export default function Home() {
       });
     }
   }, [firestore]);
+
+  // Sign in with provided credentials (dev convenience)
+  React.useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    // attempt sign-in if not signed
+    if (!auth.currentUser) {
+      signInWithEmailAndPassword(auth, "walter.miller@gruporeimagina.com", "reimagina").catch((e) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[Auth] sign-in failed (ensure user exists via /api/dev/seed-user)", e);
+        }
+      });
+    }
+    return () => unsub();
+  }, [auth]);
   
   const filteredOptimizers = React.useMemo(() => {
     const published = allOptimizers.filter(opt => opt.status === 'Published');
@@ -75,6 +94,33 @@ export default function Home() {
       setSelectedOptimizer(null);
     }
   }, [filteredOptimizers, selectedOptimizer]);
+
+  // Subscribe to messages for current user + optimizer
+  React.useEffect(() => {
+    if (!firestore || !user || !selectedOptimizer) {
+      setMessages([]);
+      return;
+    }
+    const msgsRef = collection(
+      firestore,
+      "users",
+      user.uid,
+      "optimizerChats",
+      selectedOptimizer.id,
+      "messages"
+    );
+    const q = query(msgsRef, orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: Message[] = snap.docs.map((d) => ({
+        role: (d.data().role as Message["role"]) || "assistant",
+        content: (d.data().content as string) || "",
+      }));
+      setMessages(msgs);
+    }, (err) => {
+      console.error("[Chat] subscribe error", err);
+    });
+    return () => unsub();
+  }, [firestore, user, selectedOptimizer]);
 
   const optimizersByCategory = React.useMemo(() => {
     return filteredOptimizers.reduce((acc, optimizer) => {
@@ -146,6 +192,30 @@ export default function Home() {
 
       const assistantMessage: Message = { role: "assistant", content: optimizedContent || "No content generated." };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Persist to Firestore if signed-in
+      if (firestore && user) {
+        const basePath = collection(
+          firestore,
+          "users",
+          user.uid,
+          "optimizerChats",
+          selectedOptimizer.id,
+          "messages"
+        );
+        // user message
+        await addDoc(basePath, {
+          role: userMessage.role,
+          content: userMessage.content,
+          createdAt: serverTimestamp(),
+        });
+        // assistant message
+        await addDoc(basePath, {
+          role: assistantMessage.role,
+          content: assistantMessage.content,
+          createdAt: serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error("Error generating content:", error);
       const errorMessage: Message = {

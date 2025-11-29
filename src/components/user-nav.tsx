@@ -1,3 +1,4 @@
+"use client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +12,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Image from "next/image";
+import Link from "next/link";
+import { useAuth } from "@/firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import * as React from "react";
 
 export function UserNav() {
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
+  const auth = useAuth();
+  const [email, setEmail] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, (u) => setEmail(u?.email ?? null));
+    return () => unsub();
+  }, [auth]);
 
   return (
     <DropdownMenu>
@@ -35,9 +48,9 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">User</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              user@example.com
+            <p className="text-sm font-medium leading-none">{email ? 'Signed in' : 'Guest'}</p>
+            <p className="text-xs leading-none text-muted-foreground break-all">
+              {email ?? 'Not signed in'}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -47,7 +60,15 @@ export function UserNav() {
           <DropdownMenuItem>Settings</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Log out</DropdownMenuItem>
+        {email ? (
+          <DropdownMenuItem onClick={() => signOut(auth)}>
+            Log out
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href="/login">Sign in</Link>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
