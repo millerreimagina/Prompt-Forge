@@ -10,7 +10,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import type { Optimizer } from "@/lib/types";
-import { optimizers } from "@/lib/optimizers";
 import { generateOptimizedContent } from "@/ai/flows/generate-optimized-content";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,9 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
+} from "@/components/ui/accordion";
+import { useFirestore } from "@/firebase";
+import { getOptimizers } from "@/lib/optimizers-service";
 
 
 interface Message {
@@ -41,11 +42,25 @@ const Avatar = ({ Icon }: { Icon: React.ElementType }) => (
 
 
 export default function Home() {
-  const [selectedOptimizer, setSelectedOptimizer] = React.useState<Optimizer | null>(optimizers[0] || null);
+  const [optimizers, setOptimizers] = React.useState<Optimizer[]>([]);
+  const [selectedOptimizer, setSelectedOptimizer] = React.useState<Optimizer | null>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const firestore = useFirestore();
+
+  React.useEffect(() => {
+    if (firestore) {
+      getOptimizers(firestore).then(fetchedOptimizers => {
+        const published = fetchedOptimizers.filter(o => o.status === 'Published');
+        setOptimizers(published);
+        if (published.length > 0) {
+          setSelectedOptimizer(published[0]);
+        }
+      });
+    }
+  }, [firestore]);
   
   const optimizersByCategory = React.useMemo(() => {
     return optimizers.reduce((acc, optimizer) => {
@@ -56,11 +71,9 @@ export default function Home() {
       acc[category].push(optimizer);
       return acc;
     }, {} as Record<string, Optimizer[]>);
-  }, []);
+  }, [optimizers]);
 
-  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
-    selectedOptimizer ? selectedOptimizer.category : Object.keys(optimizersByCategory)[0]
-  );
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   
   React.useEffect(() => {
     if (scrollAreaRef.current) {
@@ -74,8 +87,10 @@ export default function Home() {
   React.useEffect(() => {
     if (selectedOptimizer) {
       setSelectedCategory(selectedOptimizer.category);
+    } else if (Object.keys(optimizersByCategory).length > 0) {
+      setSelectedCategory(Object.keys(optimizersByCategory)[0]);
     }
-  }, [selectedOptimizer]);
+  }, [selectedOptimizer, optimizersByCategory]);
 
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -140,9 +155,6 @@ export default function Home() {
                         <CardHeader className="p-3">
                           <CardTitle className="text-sm flex justify-between items-start">
                             {optimizer.name}
-                            <Badge variant={optimizer.status === 'Published' ? 'default' : 'outline'}>
-                              {optimizer.status}
-                            </Badge>
                           </CardTitle>
                           <CardDescription className="text-xs line-clamp-2">{optimizer.description}</CardDescription>
                         </CardHeader>
@@ -283,4 +295,3 @@ export default function Home() {
     </div>
   );
 }
-

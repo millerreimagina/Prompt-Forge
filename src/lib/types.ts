@@ -19,6 +19,7 @@ export type Optimizer = {
   knowledgeBase: {
     id: string;
     name: string;
+    url?: string; // Add URL for storage
   }[];
   generationParams: {
     variants: number;

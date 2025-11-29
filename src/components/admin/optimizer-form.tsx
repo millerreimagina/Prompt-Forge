@@ -27,6 +27,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useFirestore } from "@/firebase";
+import { saveOptimizer, uploadKnowledgeBaseFile } from "@/lib/optimizers-service";
+import { useRouter } from "next/navigation";
 
 const availableModels = [
     { provider: 'OpenAI', model: 'gpt-4-turbo' },
@@ -42,10 +45,13 @@ type GuidedInput = Optimizer['guidedInputs'][0];
 export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [formData, setFormData] = useState<Optimizer>(optimizer);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const router = useRouter();
 
   const [testInput, setTestInput] = useState("");
   const [testResult, setTestResult] = useState<{ aiResponse: string; fullPrompt: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [knowledgeBaseFiles, setKnowledgeBaseFiles] = useState<File[]>([]);
 
   const [models, setModels] = useState(availableModels);
@@ -55,14 +61,53 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [isGuidedInputDialogOpen, setIsGuidedInputDialogOpen] = useState(false);
   const [currentGuidedInput, setCurrentGuidedInput] = useState<Partial<GuidedInput> | null>(null);
 
-  const handleFilesChange = (files: File[]) => {
+  const handleFilesChange = async (files: File[]) => {
+    if (!firestore || !formData.id) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Cannot upload files without a saved optimizer. Save the optimizer first.",
+      });
+      return;
+    }
+
     setKnowledgeBaseFiles(files);
-    // Here you would typically handle the file upload to a server
-    // and update the optimizer's knowledgeBase array.
-    // For now, we'll just update the local state.
-    const newKb = files.map(file => ({ id: file.name, name: file.name }));
-    setFormData(prev => ({...prev, knowledgeBase: newKb}));
+    
+    try {
+      const uploadPromises = files.map(file => uploadKnowledgeBaseFile(file, formData.id));
+      const uploadedFiles = await Promise.all(uploadPromises);
+      
+      const newKb = uploadedFiles.map(file => ({ id: file.id, name: file.name, url: file.url }));
+      
+      setFormData(prev => {
+        const existingKbIds = new Set(prev.knowledgeBase.map(kb => kb.id));
+        const trulyNewKb = newKb.filter(kb => !existingKbIds.has(kb.id));
+        return {...prev, knowledgeBase: [...prev.knowledgeBase, ...trulyNewKb]};
+      });
+
+      toast({
+        title: "Files Uploaded",
+        description: `${files.length} file(s) have been added to the knowledge base.`
+      });
+
+    } catch(error) {
+      console.error("File upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: "Could not upload files to the knowledge base.",
+      });
+    }
   };
+
+  const removeKnowledgeBaseFile = (fileId: string) => {
+    // Note: This only removes it from the local state.
+    // To delete from storage, we'd need another service function.
+    setFormData(prev => ({
+      ...prev,
+      knowledgeBase: prev.knowledgeBase.filter(kb => kb.id !== fileId)
+    }));
+  }
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -84,13 +129,29 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Saving data:", formData);
-    toast({
-      title: "Optimizer Saved",
-      description: `Changes to "${formData.name}" have been saved.`,
-    });
+    if (!firestore) return;
+    setIsSaving(true);
+    try {
+      const savedId = await saveOptimizer(firestore, formData);
+      setFormData(prev => ({...prev, id: savedId}));
+      toast({
+        title: "Optimizer Saved",
+        description: `Changes to "${formData.name}" have been saved.`,
+      });
+      if (optimizer.id === '') {
+        router.push(`/admin/optimizers/${savedId}`);
+      }
+    } catch(error) {
+      toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: "Could not save the optimizer.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddModel = () => {
@@ -312,7 +373,7 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
           <Card>
             <CardHeader>
               <CardTitle>Knowledge Base</CardTitle>
-              <CardDescription>Manage modular knowledge blocks for this optimizer.</CardDescription>
+              <CardDescription>Manage modular knowledge blocks for this optimizer. Files are uploaded to Firebase Storage.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FileUploader 
@@ -322,10 +383,10 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
               />
               <div className="space-y-2">
                 <h4 className="font-semibold">Attached Files</h4>
-                {knowledgeBaseFiles.length > 0 ? (
+                {formData.knowledgeBase.length > 0 ? (
                   <ul className="space-y-2">
-                    {knowledgeBaseFiles.map((file, i) => (
-                      <li key={i} className="flex items-center justify-between rounded-md border p-3">
+                    {formData.knowledgeBase.map((file) => (
+                      <li key={file.id} className="flex items-center justify-between rounded-md border p-3">
                         <div className="flex items-center gap-2">
                           <FileText className="h-5 w-5 text-muted-foreground" />
                           <span className="text-sm font-medium">{file.name}</span>
@@ -333,7 +394,7 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
                          <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleFilesChange(knowledgeBaseFiles.filter((_, index) => index !== i))}
+                            onClick={() => removeKnowledgeBaseFile(file.id)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -439,7 +500,8 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
         </TabsContent>
       </Tabs>
       <div className="mt-6 flex justify-end">
-        <Button type="submit">
+        <Button type="submit" disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           <Save className="mr-2 h-4 w-4" />
           Save Changes
         </Button>
@@ -488,5 +550,3 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
     </form>
   );
 }
-
-    

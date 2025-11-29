@@ -1,16 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { optimizers } from "@/lib/optimizers";
 import { PlusCircle, Search } from "lucide-react";
+import { useFirestore } from "@/firebase";
+import { getOptimizers } from "@/lib/optimizers-service";
+import { Optimizer } from "@/lib/types";
 
 export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [optimizers, setOptimizers] = useState<Optimizer[]>([]);
+  const firestore = useFirestore();
+
+  useEffect(() => {
+    if (firestore) {
+      getOptimizers(firestore).then(setOptimizers);
+    }
+  }, [firestore]);
 
   const filteredOptimizers = useMemo(() => {
     if (!searchTerm) {
@@ -20,7 +30,7 @@ export default function AdminDashboard() {
       optimizer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       optimizer.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, optimizers]);
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -39,9 +49,11 @@ export default function AdminDashboard() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Optimizer
+          <Button asChild>
+            <Link href="/admin/optimizers/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Optimizer
+            </Link>
           </Button>
         </div>
       </div>

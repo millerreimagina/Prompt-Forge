@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "optimizer": {
+      "title": "Optimizer",
+      "description": "An AI content optimizer configuration.",
+      "type": "object",
+      "properties": {
+        "internalName": {
+          "type": "string",
+          "description": "The internal name of the optimizer."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user-facing name of the optimizer."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description of what the optimizer does."
+        },
+        "language": {
+          "type": "string",
+          "description": "The primary language for the optimizer."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Published", "Draft"],
+          "description": "The current status of the optimizer."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category for grouping optimizers."
+        },
+        "model": {
+          "type": "object",
+          "properties": {
+            "provider": {"type": "string"},
+            "model": {"type": "string"},
+            "temperature": {"type": "number"},
+            "maxTokens": {"type": "number"},
+            "topP": {"type": "number"}
+          },
+          "required": ["provider", "model", "temperature", "maxTokens", "topP"]
+        },
+        "systemPrompt": {
+          "type": "string",
+          "description": "The core instruction that defines the optimizer's behavior."
+        },
+        "knowledgeBase": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": "string"},
+              "url": {"type": "string"}
+            },
+            "required": ["id", "name"]
+          }
+        },
+        "generationParams": {
+          "type": "object",
+          "properties": {
+            "variants": {"type": "number"},
+            "preferredLength": {"type": "string"},
+            "creativityLevel": {"type": "string"},
+            "structureRules": {"type": "array", "items": {"type": "string"}},
+            "explainReasoning": {"type": "boolean"}
+          },
+          "required": ["variants", "preferredLength", "creativityLevel", "structureRules", "explainReasoning"]
+        },
+        "guidedInputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "label": {"type": "string"},
+              "required": {"type": "boolean"}
+            },
+            "required": ["id", "label", "required"]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "internalName",
+        "description",
+        "language",
+        "status",
+        "category",
+        "model",
+        "systemPrompt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous"]
+  },
+  "firestore": {
+    "/optimizers/{optimizerId}": {
+      "schema": {
+        "$ref": "#/entities/optimizer"
+      },
+      "description": "Stores individual optimizer configurations."
+    }
+  }
+}
