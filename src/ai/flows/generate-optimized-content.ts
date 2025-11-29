@@ -58,17 +58,25 @@ const generateOptimizedContentFlow = ai.defineFlow(
       fullSystemPrompt += `\n\n--- KNOWLEDGE BASE ---\n${kbContent}`;
     }
     
-    // Dynamically define the prompt within the flow to use the optimizer's config
-    const model = ai.model(modelConfig.model);
+    // Dynamically resolve provider -> model id mapping
+    const provider = (modelConfig.provider || '').toLowerCase();
+    const providerPrefix = provider === 'openai'
+      ? 'openai'
+      : provider === 'google'
+        ? 'googleai'
+        : '';
+    const fullModelId = providerPrefix
+      ? `${providerPrefix}/${modelConfig.model}`
+      : modelConfig.model; // fallback if provider is custom or already namespaced
     
     const { output } = await ai.generate({
-      model: model,
+      model: fullModelId,
       prompt: input.userInput,
       system: fullSystemPrompt,
       config: {
-        temperature: modelConfig.temperature,
+        temperature: (provider === 'openai' && modelConfig.model === 'gpt-5-mini') ? 1 : modelConfig.temperature,
         maxOutputTokens: modelConfig.maxTokens,
-        topP: modelConfig.topP,
+        ...(provider !== 'openai' ? { topP: modelConfig.topP } : {}),
       }
     });
 

@@ -25,8 +25,8 @@ export default function OptimizerPage() {
           category: 'Social Media',
           organization: 'Personal',
           model: {
-            provider: 'Google',
-            model: 'gemini-2.5-flash',
+            provider: 'OpenAI',
+            model: 'gpt-5-mini',
             temperature: 0.7,
             maxTokens: 1024,
             topP: 1,

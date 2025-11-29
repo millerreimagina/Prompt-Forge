@@ -32,7 +32,11 @@ import { saveOptimizer, uploadKnowledgeBaseFile } from "@/lib/optimizers-service
 import { useRouter } from "next/navigation";
 
 const availableModels = [
+    { provider: 'OpenAI', model: 'gpt-5-mini' },
+    { provider: 'OpenAI', model: 'gpt-5' },
     { provider: 'OpenAI', model: 'gpt-4-turbo' },
+    { provider: 'Google', model: 'gemini-3-pro' },
+    { provider: 'Google', model: 'gemini-2.5-pro' },
     { provider: 'Anthropic', model: 'claude-3-sonnet' },
     { provider: 'Google', model: 'gemini-1.5-pro' },
     { provider: 'Google', model: 'gemini-2.5-flash' },
@@ -59,6 +63,10 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [models, setModels] = useState(availableModels);
   const [newModel, setNewModel] = useState({ provider: "", model: "" });
   const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
+
+  const isGpt5Mini =
+    (formData.model.provider || '').toLowerCase() === 'openai' &&
+    (formData.model.model || '').toLowerCase() === 'gpt-5-mini';
 
   const [isGuidedInputDialogOpen, setIsGuidedInputDialogOpen] = useState(false);
   const [currentGuidedInput, setCurrentGuidedInput] = useState<Partial<GuidedInput> | null>(null);
@@ -359,8 +367,21 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
                 </Dialog>
               </div>
               <div>
-                <Label>Temperature: <Badge variant="secondary">{formData.model.temperature}</Badge></Label>
-                <Slider value={[formData.model.temperature]} max={1} step={0.1} onValueChange={([val]) => setFormData({...formData, model: {...formData.model, temperature: val}})} />
+                <Label>
+                  Temperature: <Badge variant="secondary">{isGpt5Mini ? 1 : formData.model.temperature}</Badge>
+                </Label>
+                <Slider
+                  value={[isGpt5Mini ? 1 : formData.model.temperature]}
+                  max={1}
+                  step={0.1}
+                  disabled={isGpt5Mini}
+                  onValueChange={([val]) => setFormData({...formData, model: {...formData.model, temperature: val}})}
+                />
+                {isGpt5Mini && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Temperature is forced to 1 for OpenAI / gpt-5-mini.
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Max Tokens: <Badge variant="secondary">{formData.model.maxTokens}</Badge></Label>
