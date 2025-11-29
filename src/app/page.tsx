@@ -33,6 +33,13 @@ interface Message {
   content: string;
 }
 
+const Avatar = ({ Icon }: { Icon: React.ElementType }) => (
+  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+    <Icon className="w-5 h-5 text-muted-foreground" />
+  </div>
+);
+
+
 export default function Home() {
   const [selectedOptimizer, setSelectedOptimizer] = React.useState<Optimizer | null>(optimizers[0] || null);
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -277,8 +284,3 @@ export default function Home() {
   );
 }
 
-const Avatar = ({ Icon }: { Icon: React.ElementType }) => (
-    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-      <Icon className="w-5 h-5 text-muted-foreground" />
-    </div>
-);

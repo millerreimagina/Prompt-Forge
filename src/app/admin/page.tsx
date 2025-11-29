@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { optimizers as allOptimizers } from "@/lib/optimizers";
+import { optimizers } from "@/lib/optimizers";
 import { PlusCircle, Search } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -14,9 +14,9 @@ export default function AdminDashboard() {
 
   const filteredOptimizers = useMemo(() => {
     if (!searchTerm) {
-      return allOptimizers;
+      return optimizers;
     }
-    return allOptimizers.filter(optimizer => 
+    return optimizers.filter(optimizer => 
       optimizer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       optimizer.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
