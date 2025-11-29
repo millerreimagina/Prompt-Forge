@@ -14,8 +14,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { testOptimizer } from "@/ai/flows/test-optimizer-with-example-input";
 import { Badge } from "@/components/ui/badge";
-import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save, FileText, X } from "lucide-react";
+import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save, FileText, X, PlusCircle } from "lucide-react";
 import { FileUploader } from "@/components/ui/file-uploader";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const availableModels = [
+    { provider: 'OpenAI', model: 'gpt-4-turbo' },
+    { provider: 'Anthropic', model: 'claude-3-sonnet' },
+    { provider: 'Google', model: 'gemini-1.5-pro' },
+    { provider: 'Custom', model: 'custom' },
+];
 
 export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [formData, setFormData] = useState<Optimizer>(optimizer);
@@ -25,6 +41,10 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [testResult, setTestResult] = useState<{ aiResponse: string; fullPrompt: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [knowledgeBaseFiles, setKnowledgeBaseFiles] = useState<File[]>([]);
+
+  const [models, setModels] = useState(availableModels);
+  const [newModel, setNewModel] = useState({ provider: "", model: "" });
+  const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
 
   const handleFilesChange = (files: File[]) => {
     setKnowledgeBaseFiles(files);
@@ -64,10 +84,25 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
     });
   };
 
+  const handleAddModel = () => {
+    if (newModel.provider && newModel.model) {
+      const newModelOption = { provider: newModel.provider, model: newModel.model };
+      setModels([...models, newModelOption]);
+      setFormData(prev => ({ ...prev, model: { ...prev.model, ...newModelOption }}));
+      setNewModel({ provider: "", model: "" });
+      setIsAddModelDialogOpen(false);
+    }
+  };
+
+  const handleModelChange = (value: string) => {
+    const [provider, modelName] = value.split('/');
+    setFormData(prev => ({ ...prev, model: { ...prev.model, provider, model: modelName }}));
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-2 h-auto md:grid-cols-4 lg:grid-cols-7 mb-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 mb-6 h-auto flex-wrap">
           <TabsTrigger value="general"><Info className="mr-2 h-4 w-4"/>General</TabsTrigger>
           <TabsTrigger value="model"><Bot className="mr-2 h-4 w-4"/>AI Model</TabsTrigger>
           <TabsTrigger value="prompt"><BrainCircuit className="mr-2 h-4 w-4"/>System Prompt</TabsTrigger>
@@ -131,15 +166,65 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
               <CardDescription>Set the AI model and its parameters for this optimizer.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Provider</Label>
-                  <Input disabled value={formData.model.provider} />
-                </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
                   <Label>Model</Label>
-                  <Input disabled value={formData.model.model} />
+                  <Select 
+                    value={`${formData.model.provider}/${formData.model.model}`}
+                    onValueChange={handleModelChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map((m, i) => (
+                        <SelectItem key={i} value={`${m.provider}/${m.model}`}>
+                          {m.provider} / {m.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4" />Add New Model</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Model</DialogTitle>
+                      <DialogDescription>
+                        Add a new provider and model to the list.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="provider" className="text-right">
+                          Provider
+                        </Label>
+                        <Input
+                          id="provider"
+                          value={newModel.provider}
+                          onChange={(e) => setNewModel({ ...newModel, provider: e.target.value })}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="model-name" className="text-right">
+                          Model
+                        </Label>
+                        <Input
+                          id="model-name"
+                          value={newModel.model}
+                          onChange={(e) => setNewModel({ ...newModel, model: e.target.value })}
+                          className="col-span-3"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" onClick={handleAddModel}>Save Model</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
               <div>
                 <Label>Temperature: <Badge variant="secondary">{formData.model.temperature}</Badge></Label>
