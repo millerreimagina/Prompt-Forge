@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { testOptimizer } from "@/ai/flows/test-optimizer-with-example-input";
 import { Badge } from "@/components/ui/badge";
-import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save } from "lucide-react";
+import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save, FileText, X } from "lucide-react";
+import { FileUploader } from "@/components/ui/file-uploader";
 
 export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [formData, setFormData] = useState<Optimizer>(optimizer);
@@ -23,6 +24,16 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [testInput, setTestInput] = useState("");
   const [testResult, setTestResult] = useState<{ aiResponse: string; fullPrompt: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [knowledgeBaseFiles, setKnowledgeBaseFiles] = useState<File[]>([]);
+
+  const handleFilesChange = (files: File[]) => {
+    setKnowledgeBaseFiles(files);
+    // Here you would typically handle the file upload to a server
+    // and update the optimizer's knowledgeBase array.
+    // For now, we'll just update the local state.
+    const newKb = files.map(file => ({ id: file.name, name: file.name }));
+    setFormData(prev => ({...prev, knowledgeBase: newKb}));
+  };
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -160,9 +171,36 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
               <CardTitle>Knowledge Base</CardTitle>
               <CardDescription>Manage modular knowledge blocks for this optimizer.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {formData.knowledgeBase.map(kb => <Badge key={kb.id}>{kb.name}</Badge>)}
-               {formData.knowledgeBase.length === 0 && <p className="text-sm text-muted-foreground">No knowledge bases attached.</p>}
+            <CardContent className="space-y-4">
+              <FileUploader 
+                onFilesChange={handleFilesChange}
+                accept="application/pdf, text/plain, .md"
+                multiple
+              />
+              <div className="space-y-2">
+                <h4 className="font-semibold">Attached Files</h4>
+                {knowledgeBaseFiles.length > 0 ? (
+                  <ul className="space-y-2">
+                    {knowledgeBaseFiles.map((file, i) => (
+                      <li key={i} className="flex items-center justify-between rounded-md border p-3">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <span className="text-sm font-medium">{file.name}</span>
+                        </div>
+                         <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleFilesChange(knowledgeBaseFiles.filter((_, index) => index !== i))}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No knowledge bases attached.</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
