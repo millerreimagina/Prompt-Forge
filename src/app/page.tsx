@@ -53,10 +53,9 @@ export default function Home() {
   React.useEffect(() => {
     if (firestore) {
       getOptimizers(firestore).then(fetchedOptimizers => {
-        const published = fetchedOptimizers.filter(o => o.status === 'Published');
-        setOptimizers(published);
-        if (published.length > 0) {
-          setSelectedOptimizer(published[0]);
+        setOptimizers(fetchedOptimizers);
+        if (fetchedOptimizers.length > 0) {
+          setSelectedOptimizer(fetchedOptimizers[0]);
         }
       });
     }
