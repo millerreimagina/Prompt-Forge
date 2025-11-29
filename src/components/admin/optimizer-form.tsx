@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { testOptimizer } from "@/ai/flows/test-optimizer-with-example-input";
 import { Badge } from "@/components/ui/badge";
-import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save, FileText, X, PlusCircle } from "lucide-react";
+import { Info, BrainCircuit, Bot, Database, SlidersHorizontal, ListChecks, FlaskConical, Loader2, Save, FileText, X, PlusCircle, Trash2, Pencil } from "lucide-react";
 import { FileUploader } from "@/components/ui/file-uploader";
 import {
   Dialog,
@@ -24,7 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const availableModels = [
     { provider: 'OpenAI', model: 'gpt-4-turbo' },
@@ -32,6 +34,8 @@ const availableModels = [
     { provider: 'Google', model: 'gemini-1.5-pro' },
     { provider: 'Custom', model: 'custom' },
 ];
+
+type GuidedInput = Optimizer['guidedInputs'][0];
 
 export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [formData, setFormData] = useState<Optimizer>(optimizer);
@@ -45,6 +49,9 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const [models, setModels] = useState(availableModels);
   const [newModel, setNewModel] = useState({ provider: "", model: "" });
   const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
+
+  const [isGuidedInputDialogOpen, setIsGuidedInputDialogOpen] = useState(false);
+  const [currentGuidedInput, setCurrentGuidedInput] = useState<Partial<GuidedInput> | null>(null);
 
   const handleFilesChange = (files: File[]) => {
     setKnowledgeBaseFiles(files);
@@ -98,6 +105,44 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
     const [provider, modelName] = value.split('/');
     setFormData(prev => ({ ...prev, model: { ...prev.model, provider, model: modelName }}));
   }
+
+  const openAddGuidedInput = () => {
+    setCurrentGuidedInput({ id: `input-${Date.now()}`, label: '', required: false });
+    setIsGuidedInputDialogOpen(true);
+  };
+
+  const openEditGuidedInput = (input: GuidedInput) => {
+    setCurrentGuidedInput(input);
+    setIsGuidedInputDialogOpen(true);
+  };
+
+  const handleSaveGuidedInput = () => {
+    if (currentGuidedInput && currentGuidedInput.label) {
+      const existingInput = formData.guidedInputs.find(i => i.id === currentGuidedInput.id);
+      if (existingInput) {
+        // Update existing
+        setFormData(prev => ({
+          ...prev,
+          guidedInputs: prev.guidedInputs.map(i => i.id === currentGuidedInput.id ? currentGuidedInput as GuidedInput : i)
+        }));
+      } else {
+        // Add new
+        setFormData(prev => ({
+          ...prev,
+          guidedInputs: [...prev.guidedInputs, currentGuidedInput as GuidedInput]
+        }));
+      }
+      setIsGuidedInputDialogOpen(false);
+      setCurrentGuidedInput(null);
+    }
+  };
+
+  const handleDeleteGuidedInput = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      guidedInputs: prev.guidedInputs.filter(i => i.id !== id)
+    }));
+  };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -315,16 +360,32 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
                     <CardTitle>Guided Inputs</CardTitle>
                     <CardDescription>Define what information to ask the user before generation.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                    {formData.guidedInputs.map(input => (
-                        <div key={input.id} className="flex items-center justify-between rounded-md border p-3">
-                            <p>{input.label}</p>
-                            <Badge variant={input.required ? "default" : "secondary"}>
-                                {input.required ? "Required" : "Optional"}
-                            </Badge>
-                        </div>
-                    ))}
-                    {formData.guidedInputs.length === 0 && <p className="text-sm text-muted-foreground">No guided inputs defined.</p>}
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        {formData.guidedInputs.map(input => (
+                            <div key={input.id} className="flex items-center justify-between rounded-md border p-3">
+                                <div>
+                                    <p className="font-medium">{input.label}</p>
+                                    <Badge variant={input.required ? "default" : "secondary"} className="mt-1">
+                                        {input.required ? "Required" : "Optional"}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="ghost" size="icon" onClick={() => openEditGuidedInput(input)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteGuidedInput(input.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                            </div>
+                        ))}
+                        {formData.guidedInputs.length === 0 && <p className="text-sm text-muted-foreground">No guided inputs defined.</p>}
+                    </div>
+                     <Button type="button" variant="outline" onClick={openAddGuidedInput}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Input
+                    </Button>
                 </CardContent>
             </Card>
         </TabsContent>
@@ -370,6 +431,49 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
           Save Changes
         </Button>
       </div>
+
+       <Dialog open={isGuidedInputDialogOpen} onOpenChange={setIsGuidedInputDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{currentGuidedInput?.id?.startsWith('input-') ? 'Add' : 'Edit'} Guided Input</DialogTitle>
+            <DialogDescription>
+              Configure the question you want to ask the user.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="guided-input-label" className="text-right">
+                Label
+              </Label>
+              <Input
+                id="guided-input-label"
+                value={currentGuidedInput?.label || ''}
+                onChange={(e) => setCurrentGuidedInput(prev => ({...prev, label: e.target.value}))}
+                className="col-span-3"
+                placeholder="e.g., What is the goal of this post?"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <div className="col-start-2 col-span-3 flex items-center space-x-2">
+                <Checkbox 
+                  id="guided-input-required"
+                  checked={currentGuidedInput?.required || false}
+                  onCheckedChange={(checked) => setCurrentGuidedInput(prev => ({...prev, required: !!checked}))}
+                />
+                <Label htmlFor="guided-input-required">
+                  Required
+                </Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsGuidedInputDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleSaveGuidedInput}>Save Input</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
+
+    
