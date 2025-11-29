@@ -1,16 +1,7 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import {initializeApp, getApps, App} from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
 
-// Initialize Firebase Admin SDK
-if (!getApps().length) {
-    initializeApp({
-        credential: credential.applicationDefault(),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-}
-
+// Firebase Admin SDK is now initialized in the flows that need it.
 
 export const ai = genkit({
   plugins: [googleAI()],

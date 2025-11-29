@@ -13,6 +13,7 @@ import {z} from 'genkit';
 import { getFirestore } from 'firebase-admin/firestore';
 import {getOptimizer} from '@/lib/optimizers-service.server';
 import { Optimizer } from '@/lib/types';
+import { getFirebaseAdminApp } from '@/firebase/firebase-admin';
 
 
 const GenerateOptimizedContentInputSchema = z.object({
@@ -30,9 +31,6 @@ export async function generateOptimizedContent(input: GenerateOptimizedContentIn
   return generateOptimizedContentFlow(input);
 }
 
-// This is a dynamic prompt that will be constructed inside the flow
-// so we don't need a predefined handlebars prompt here.
-
 const generateOptimizedContentFlow = ai.defineFlow(
   {
     name: 'generateOptimizedContentFlow',
@@ -41,31 +39,39 @@ const generateOptimizedContentFlow = ai.defineFlow(
   },
   async (input) => {
     
-    const firestore = getFirestore();
+    const adminApp = getFirebaseAdminApp();
+    const firestore = getFirestore(adminApp);
     const optimizer = await getOptimizer(firestore, input.optimizerId);
 
     if (!optimizer) {
         throw new Error(`Optimizer with ID ${input.optimizerId} not found.`);
     }
 
-    const { systemPrompt, model: modelConfig } = optimizer;
+    const { systemPrompt, model: modelConfig, knowledgeBase } = optimizer;
 
-    // Construct a dynamic prompt
-    const prompt = ai.definePrompt({
-        name: 'dynamicGenerateContentPrompt',
-        system: systemPrompt,
-        input: { schema: z.string() },
-        output: { schema: z.object({ optimizedContent: z.string() }) },
-        config: {
-            model: ai.model(modelConfig.model),
-            temperature: modelConfig.temperature,
-            maxOutputTokens: modelConfig.maxTokens,
-            topP: modelConfig.topP,
-        },
+    let fullSystemPrompt = systemPrompt;
+
+    if (knowledgeBase && knowledgeBase.length > 0) {
+      // NOTE: For simplicity, we are just appending the names.
+      // A more robust solution would fetch the content from the URLs.
+      const kbContent = knowledgeBase.map(kb => `[Knowledge: ${kb.name}]`).join('\n');
+      fullSystemPrompt += `\n\n--- KNOWLEDGE BASE ---\n${kbContent}`;
+    }
+    
+    // Dynamically define the prompt within the flow to use the optimizer's config
+    const model = ai.model(modelConfig.model);
+    
+    const { output } = await ai.generate({
+      model: model,
+      prompt: input.userInput,
+      system: fullSystemPrompt,
+      config: {
+        temperature: modelConfig.temperature,
+        maxOutputTokens: modelConfig.maxTokens,
+        topP: modelConfig.topP,
+      }
     });
 
-    const { output } = await prompt(input.userInput);
-
-    return { optimizedContent: output!.optimizedContent };
+    return { optimizedContent: output.text ?? "No content generated." };
   }
 );
