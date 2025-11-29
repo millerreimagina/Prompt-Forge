@@ -8,6 +8,7 @@ import {
   addDoc,
   deleteDoc,
   Firestore,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { Optimizer } from './types';
@@ -81,4 +82,24 @@ export async function uploadKnowledgeBaseFile(
   const downloadURL = await getDownloadURL(storageRef);
 
   return { id: file.name, name: file.name, url: downloadURL };
+}
+
+export async function deleteOptimizers(db: Firestore, optimizerIds: string[]) {
+  if (optimizerIds.length === 0) {
+    return;
+  }
+  const batch = writeBatch(db);
+  optimizerIds.forEach(id => {
+    const docRef = doc(db, 'optimizers', id);
+    batch.delete(docRef);
+  });
+
+  batch.commit().catch((serverError) => {
+    const permissionError = new FirestorePermissionError({
+      path: '/optimizers',
+      operation: 'delete',
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    throw permissionError;
+  });
 }
