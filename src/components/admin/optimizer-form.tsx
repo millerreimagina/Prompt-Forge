@@ -67,7 +67,7 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   return (
     <form onSubmit={handleSubmit}>
       <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-7 mb-6">
+        <TabsList className="grid w-full grid-cols-2 h-auto md:grid-cols-4 lg:grid-cols-7 mb-6">
           <TabsTrigger value="general"><Info className="mr-2 h-4 w-4"/>General</TabsTrigger>
           <TabsTrigger value="model"><Bot className="mr-2 h-4 w-4"/>AI Model</TabsTrigger>
           <TabsTrigger value="prompt"><BrainCircuit className="mr-2 h-4 w-4"/>System Prompt</TabsTrigger>
