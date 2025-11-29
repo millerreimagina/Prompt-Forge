@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Search, Trash2, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Search, Trash2, MoreHorizontal, FileUp, FileDown } from "lucide-react";
 import { useFirestore } from "@/firebase";
-import { deleteOptimizers, getOptimizers } from "@/lib/optimizers-service";
+import { deleteOptimizers, getOptimizers, saveOptimizer } from "@/lib/optimizers-service";
 import { Optimizer } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -30,12 +31,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
-
 export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [optimizers, setOptimizers] = useState<Optimizer[]>([]);
   const [selectedOptimizers, setSelectedOptimizers] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [optimizerToDelete, setOptimizerToDelete] = useState<string | null>(null);
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -62,16 +63,19 @@ export default function AdminDashboard() {
       setSelectedOptimizers(prev => prev.filter(id => id !== optimizerId));
     }
   };
+  
+  const handleDelete = async () => {
+    if (!firestore) return;
+    const idsToDelete = optimizerToDelete ? [optimizerToDelete] : selectedOptimizers;
+    if (idsToDelete.length === 0) return;
 
-  const handleDeleteSelected = async () => {
-    if (!firestore || selectedOptimizers.length === 0) return;
     try {
-      await deleteOptimizers(firestore, selectedOptimizers);
-      setOptimizers(prev => prev.filter(opt => !selectedOptimizers.includes(opt.id)));
-      setSelectedOptimizers([]);
+      await deleteOptimizers(firestore, idsToDelete);
+      setOptimizers(prev => prev.filter(opt => !idsToDelete.includes(opt.id)));
+      setSelectedOptimizers(prev => prev.filter(id => !idsToDelete.includes(id)));
       toast({
         title: "Optimizers Deleted",
-        description: `${selectedOptimizers.length} optimizer(s) have been deleted.`,
+        description: `${idsToDelete.length} optimizer(s) have been deleted.`,
       });
     } catch(error) {
        toast({
@@ -81,6 +85,43 @@ export default function AdminDashboard() {
       });
     } finally {
       setIsDeleteDialogOpen(false);
+      setOptimizerToDelete(null);
+    }
+  }
+
+  const promptDelete = (optimizerId?: string) => {
+    if (optimizerId) {
+      setOptimizerToDelete(optimizerId);
+    }
+    setIsDeleteDialogOpen(true);
+  }
+
+  const handleToggleStatus = async (optimizer: Optimizer) => {
+    if (!firestore) return;
+    const newStatus = optimizer.status === 'Published' ? 'Draft' : 'Published';
+    const updatedOptimizer = { ...optimizer, status: newStatus };
+    try {
+      await saveOptimizer(firestore, updatedOptimizer);
+      setOptimizers(prev => prev.map(opt => opt.id === optimizer.id ? updatedOptimizer : opt));
+      toast({
+        title: `Optimizer ${newStatus}`,
+        description: `"${optimizer.name}" is now ${newStatus.toLowerCase()}.`,
+      });
+    } catch(error) {
+       toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update the optimizer status.",
+      });
+    }
+  }
+
+  const getOrganizationBadgeColor = (organization: Optimizer['organization']) => {
+    switch (organization) {
+      case 'Reimagina': return 'bg-blue-200 text-blue-800';
+      case 'Trend Riders': return 'bg-purple-200 text-purple-800';
+      case 'Personal': return 'bg-green-200 text-green-800';
+      default: return 'bg-gray-200 text-gray-800';
     }
   }
 
@@ -103,23 +144,10 @@ export default function AdminDashboard() {
               />
             </div>
             {selectedOptimizers.length > 0 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                      <MoreHorizontal className="mr-2 h-4 w-4" />
-                      Actions ({selectedOptimizers.length})
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onSelect={() => setIsDeleteDialogOpen(true)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Selected
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button variant="outline" onClick={() => promptDelete()}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete ({selectedOptimizers.length})
+                </Button>
             ) : null}
             <Button asChild>
               <Link href="/admin/optimizers/new">
@@ -134,28 +162,55 @@ export default function AdminDashboard() {
           {filteredOptimizers.map((optimizer) => {
               const isSelected = selectedOptimizers.includes(optimizer.id);
               return (
-              <div key={optimizer.id} className="relative">
+              <div key={optimizer.id} className="relative group">
                  <Checkbox
                   checked={isSelected}
                   onCheckedChange={(checked) => handleSelectOptimizer(optimizer.id, !!checked)}
                   className="absolute top-4 left-4 z-10 bg-white"
                   aria-label={`Select ${optimizer.name}`}
                 />
-                <Card className={cn("flex flex-col h-full", isSelected && "ring-2 ring-primary")}>
+                <Card className={cn("flex flex-col h-full transition-shadow hover:shadow-lg", isSelected && "ring-2 ring-primary")}>
                   <CardHeader>
-                    <CardTitle className="flex justify-between items-start pl-8">
-                      {optimizer.name}
-                      <Badge variant={optimizer.status === 'Published' ? 'default' : 'secondary'}>
-                        {optimizer.status}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 pl-8">{optimizer.description}</CardDescription>
+                    <div className="flex justify-between items-start pl-8">
+                      <CardTitle>
+                        {optimizer.name}
+                      </CardTitle>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleToggleStatus(optimizer)}>
+                            {optimizer.status === 'Published' ? (
+                              <><FileDown className="mr-2 h-4 w-4" /> Unpublish</>
+                            ) : (
+                              <><FileUp className="mr-2 h-4 w-4" /> Publish</>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onSelect={() => promptDelete(optimizer.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                     <div className="flex gap-2 items-center pl-8 pt-2">
+                        <Badge variant={optimizer.status === 'Published' ? 'default' : 'secondary'}>
+                          {optimizer.status}
+                        </Badge>
+                        <Badge className={cn("border-transparent", getOrganizationBadgeColor(optimizer.organization))}>
+                          {optimizer.organization}
+                        </Badge>
+                      </div>
                   </CardHeader>
                   <CardContent className="flex-grow">
-                    <div className="text-sm text-muted-foreground space-y-2 pl-8">
-                      <p><span className="font-semibold">Model:</span> {optimizer.model.provider} / {optimizer.model.model}</p>
-                      <p><span className="font-semibold">Language:</span> {optimizer.language}</p>
-                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2 pl-8">{optimizer.description}</p>
                   </CardContent>
                   <CardFooter>
                     <Button asChild variant="outline" className="w-full">
@@ -180,12 +235,12 @@ export default function AdminDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete {selectedOptimizers.length} optimizer(s).
+              This action cannot be undone. This will permanently delete {optimizerToDelete ? 1 : selectedOptimizers.length} optimizer(s).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogCancel onClick={() => setOptimizerToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
