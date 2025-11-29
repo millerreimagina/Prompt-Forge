@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CornerDownLeft, User, Sparkles, Loader2 } from "lucide-react";
+import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,13 @@ import { optimizers } from "@/lib/optimizers";
 import { generateOptimizedContent } from "@/ai/flows/generate-optimized-content";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 interface Message {
   role: "user" | "assistant";
@@ -94,7 +101,9 @@ export default function Home() {
                   <CardHeader className="p-4">
                     <CardTitle className="text-base flex justify-between items-start">
                       {optimizer.name}
-                      {optimizer.status === 'Draft' && <Badge variant="outline">Draft</Badge>}
+                      <Badge variant={optimizer.status === 'Published' ? 'default' : 'outline'}>
+                        {optimizer.status}
+                      </Badge>
                     </CardTitle>
                     <CardDescription className="text-xs line-clamp-2">{optimizer.description}</CardDescription>
                   </CardHeader>
@@ -106,13 +115,36 @@ export default function Home() {
 
         <div className="flex-1 flex flex-col">
           <div className="border-b p-4 flex items-center justify-between">
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    {selectedOptimizer ? selectedOptimizer.name : "Select Optimizer"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                  {optimizers.map((optimizer) => (
+                    <DropdownMenuItem
+                      key={optimizer.id}
+                      onClick={() => {
+                        setSelectedOptimizer(optimizer);
+                        setMessages([]);
+                      }}
+                    >
+                      {optimizer.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             {selectedOptimizer ? (
-              <div>
+              <div className="hidden md:block">
                 <h3 className="font-semibold text-lg">{selectedOptimizer.name}</h3>
                 <p className="text-sm text-muted-foreground">{selectedOptimizer.description}</p>
               </div>
             ) : (
-              <div className="text-muted-foreground">Select an optimizer to start</div>
+              <div className="text-muted-foreground hidden md:block">Select an optimizer to start</div>
             )}
           </div>
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
