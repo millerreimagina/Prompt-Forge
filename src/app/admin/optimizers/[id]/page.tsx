@@ -23,6 +23,7 @@ export default function OptimizerPage() {
           language: 'English',
           status: 'Draft',
           category: 'Social Media',
+          organization: 'Personal',
           model: {
             provider: 'Google',
             model: 'gemini-2.5-flash',

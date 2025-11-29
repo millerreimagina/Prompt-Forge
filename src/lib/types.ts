@@ -6,6 +6,7 @@ export type Optimizer = {
   language: string;
   status: 'Published' | 'Draft';
   category: string;
+  organization: 'Reimagina' | 'Trend Riders' | 'Personal';
   model: {
     provider: string;
     model: string;

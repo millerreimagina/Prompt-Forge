@@ -30,6 +30,11 @@
           "type": "string",
           "description": "The category for grouping optimizers."
         },
+        "organization": {
+          "type": "string",
+          "description": "The organization the optimizer belongs to.",
+          "enum": ["Reimagina", "Trend Riders", "Personal"]
+        },
         "model": {
           "type": "object",
           "properties": {
@@ -88,6 +93,7 @@
         "language",
         "status",
         "category",
+        "organization",
         "model",
         "systemPrompt"
       ]
