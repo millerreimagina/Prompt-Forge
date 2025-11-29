@@ -35,6 +35,8 @@ const availableModels = [
     { provider: 'Custom', model: 'custom' },
 ];
 
+const availableCategories = ['Social Media', 'Image Generation', 'SEO', 'Marketing'];
+
 type GuidedInput = Optimizer['guidedInputs'][0];
 
 export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
@@ -178,7 +180,18 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
                 <Label htmlFor="description">Description</Label>
                 <Textarea id="description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {availableCategories.map(category => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <Label htmlFor="language">Language</Label>
                   <Select value={formData.language} onValueChange={(value) => setFormData({...formData, language: value})}>
