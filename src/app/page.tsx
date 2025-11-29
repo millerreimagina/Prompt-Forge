@@ -10,7 +10,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import type { Optimizer } from "@/lib/types";
-import { generateOptimizedContent } from "@/ai/flows/generate-optimized-content";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
 import {
@@ -117,15 +116,35 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const result = await generateOptimizedContent({
-        optimizerId: selectedOptimizer.id,
-        userInput: input,
+      const res = await fetch("/api/generate-optimized-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optimizer: selectedOptimizer, userInput: input }),
       });
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: result.optimizedContent,
-      };
+      const contentType = res.headers.get("content-type") || "";
+      let optimizedContent = "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Client] API JSON response", data);
+        }
+        optimizedContent = data?.optimizedContent || data?.text || data?.content || "";
+        if (!res.ok) {
+          throw new Error(data?.error || "Generation failed");
+        }
+      } else {
+        const text = await res.text();
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Client] API text response", text);
+        }
+        optimizedContent = text;
+        if (!res.ok) {
+          throw new Error(text || "Generation failed");
+        }
+      }
+
+      const assistantMessage: Message = { role: "assistant", content: optimizedContent || "No content generated." };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error generating content:", error);
