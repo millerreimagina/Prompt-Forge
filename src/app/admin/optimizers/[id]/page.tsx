@@ -25,7 +25,7 @@ export default function OptimizerPage() {
           category: 'Social Media',
           model: {
             provider: 'Google',
-            model: 'gemini-1.5-pro',
+            model: 'gemini-2.5-flash',
             temperature: 0.7,
             maxTokens: 1024,
             topP: 1,

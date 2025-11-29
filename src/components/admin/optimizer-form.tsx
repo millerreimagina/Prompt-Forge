@@ -35,6 +35,7 @@ const availableModels = [
     { provider: 'OpenAI', model: 'gpt-4-turbo' },
     { provider: 'Anthropic', model: 'claude-3-sonnet' },
     { provider: 'Google', model: 'gemini-1.5-pro' },
+    { provider: 'Google', model: 'gemini-2.5-flash' },
     { provider: 'Custom', model: 'custom' },
 ];
 
