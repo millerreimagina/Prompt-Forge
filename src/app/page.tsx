@@ -1,3 +1,13 @@
+  if (checkingAuth) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <span className="text-sm text-muted-foreground">Checking session…</span>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
 "use client";
 
 import * as React from "react";
@@ -13,7 +23,8 @@ import type { Optimizer } from "@/lib/types";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged, type User as FirebaseUser, getIdTokenResult } from "firebase/auth";
+import { onAuthStateChanged, type User as FirebaseUser, getIdTokenResult } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import {
   DropdownMenu,
@@ -52,7 +63,9 @@ export default function Home() {
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const firestore = useFirestore();
   const auth = useAuth();
+  const router = useRouter();
   const [user, setUser] = React.useState<FirebaseUser | null>(null);
+  const [checkingAuth, setCheckingAuth] = React.useState(true);
   const [selectedOrganizations, setSelectedOrganizations] = React.useState<Optimizer['organization'][]>([]);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [userCompany, setUserCompany] = React.useState<Optimizer['organization'] | null>(null);
@@ -67,11 +80,18 @@ export default function Home() {
     }
   }, [firestore]);
 
-  // Sign in with provided credentials (dev convenience) and load claims
+  // Require auth: check session and redirect to /login if not signed in; also load claims
   React.useEffect(() => {
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (!u) {
+        setIsAdmin(false);
+        setUserCompany(null);
+        setCheckingAuth(false);
+        router.replace('/login');
+        return;
+      }
       if (u) {
         try {
           const t = await getIdTokenResult(u, true);
@@ -86,19 +106,9 @@ export default function Home() {
           setIsAdmin(false);
           setUserCompany(null);
         }
-      } else {
-        setIsAdmin(false);
-        setUserCompany(null);
       }
+      setCheckingAuth(false);
     });
-    // attempt sign-in if not signed
-    if (!auth.currentUser) {
-      signInWithEmailAndPassword(auth, "walter.miller@gruporeimagina.com", "reimagina").catch((e) => {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[Auth] sign-in failed (ensure user exists via /api/dev/seed-user)", e);
-        }
-      });
-    }
     return () => unsub();
   }, [auth]);
   
