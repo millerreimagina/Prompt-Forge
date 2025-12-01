@@ -166,7 +166,11 @@ export default function Home() {
       const res = await fetch("/api/generate-optimized-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optimizer: selectedOptimizer, userInput: input }),
+        body: JSON.stringify({
+          optimizer: selectedOptimizer,
+          userInput: input,
+          history: messages.slice(-10),
+        }),
       });
 
       const contentType = res.headers.get("content-type") || "";

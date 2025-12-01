@@ -48,6 +48,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const optimizer: Optimizer | undefined = body?.optimizer;
     const userInput: string = body?.userInput ?? '';
+    const historyRaw: any[] = Array.isArray(body?.history) ? body.history : [];
+
+    const history: Array<{ role: 'user' | 'assistant'; content: string }> = historyRaw
+      .map((m) => ({ role: (m?.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant', content: String(m?.content ?? '') }))
+      .filter((m) => m.content.trim().length > 0)
+      .slice(-10);
 
     if (!optimizer || !userInput) {
       return NextResponse.json({ error: 'Missing optimizer or userInput' }, { status: 400 });
@@ -69,9 +75,15 @@ export async function POST(req: NextRequest) {
 
     let genkitResult: any | null = null;
     try {
+      const conversationPrefix = history
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n');
+
       const { output } = await ai.generate({
         model: modelId,
-        prompt: userInput,
+        prompt: conversationPrefix
+          ? `${conversationPrefix}\nUser: ${userInput}\nAssistant:`
+          : userInput,
         system,
         config: genkitConfig,
       });
@@ -96,6 +108,7 @@ export async function POST(req: NextRequest) {
           model: optimizer.model.model, // e.g., 'gpt-5-mini' or others
           messages: [
             ...(system ? [{ role: 'system', content: system as string }] : []),
+            ...history.map((m) => ({ role: m.role, content: m.content } as { role: 'user' | 'assistant'; content: string })),
             { role: 'user', content: userInput },
           ],
           temperature: 1, // enforce for gpt-5-mini per requirement; kept for simplicity
