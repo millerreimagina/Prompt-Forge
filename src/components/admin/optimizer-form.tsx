@@ -444,6 +444,21 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
                 <Label>Number of Variants: <Badge variant="secondary">{formData.generationParams.variants}</Badge></Label>
                 <Slider value={[formData.generationParams.variants]} max={10} step={1} onValueChange={([val]) => setFormData({...formData, generationParams: {...formData.generationParams, variants: val}})} />
               </div>
+              <div>
+                <Label>
+                  Chat History Messages: <Badge variant="secondary">{formData.generationParams.historyMessages ?? 10}</Badge>
+                </Label>
+                <Slider
+                  value={[formData.generationParams.historyMessages ?? 10]}
+                  max={20}
+                  min={0}
+                  step={1}
+                  onValueChange={([val]) => setFormData({
+                    ...formData,
+                    generationParams: { ...formData.generationParams, historyMessages: val },
+                  })}
+                />
+              </div>
               <div className="flex items-center space-x-2">
                 <Switch id="explain-reasoning" checked={formData.generationParams.explainReasoning} onCheckedChange={(checked) => setFormData({...formData, generationParams: {...formData.generationParams, explainReasoning: checked}})} />
                 <Label htmlFor="explain-reasoning">Explain reasoning</Label>

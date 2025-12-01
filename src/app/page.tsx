@@ -185,13 +185,14 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const historyLen = selectedOptimizer?.generationParams?.historyMessages ?? 10;
       const res = await fetch("/api/generate-optimized-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           optimizer: selectedOptimizer,
           userInput: input,
-          history: messages.slice(-10),
+          history: messages.slice(-historyLen),
         }),
       });
 

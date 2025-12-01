@@ -28,6 +28,7 @@ export type Optimizer = {
     creativityLevel: string;
     structureRules: string[];
     explainReasoning: boolean;
+    historyMessages?: number; // number of previous chat messages to include
   };
   guidedInputs: {
     id: string;
