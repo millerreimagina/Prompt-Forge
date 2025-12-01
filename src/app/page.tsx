@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown } from "lucide-react";
+import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,7 @@ export default function Home() {
   const auth = useAuth();
   const [user, setUser] = React.useState<FirebaseUser | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = React.useState<Optimizer['organization'][]>([]);
+  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
 
 
   React.useEffect(() => {
@@ -363,31 +364,63 @@ export default function Home() {
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <Sparkles className="w-12 h-12 mb-4" />
-                  <p className="text-lg">Welcome to PromptForge</p>
-                  <p>Your AI-powered content generation assistant.</p>
+                  <p>Escribe un mensaje para comenzar</p>
                 </div>
               )}
+
               {messages.map((message, index) => (
-                <div key={index} className={cn("flex items-start gap-4", message.role === "user" ? "justify-end" : "")}>
-                  {message.role === "assistant" && (
-                    <Avatar Icon={Bot} />
-                  )}
-                  <div className={cn("rounded-lg px-4 py-3 max-w-xl", message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card border')}>
+                <div
+                  key={index}
+                  className={cn("flex items-start gap-4", message.role === "user" ? "justify-end" : "")}
+                >
+                  {message.role === "assistant" && <Avatar Icon={Bot} />}
+                  <div
+                    className={cn(
+                      "rounded-lg px-4 py-3 max-w-xl",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border relative pr-10"
+                    )}
+                  >
                     <pre className="whitespace-pre-wrap font-body text-sm">{message.content}</pre>
+                    {message.role === "assistant" && (
+                      <div className="absolute top-2 right-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(message.content);
+                                setCopiedIndex(index);
+                                setTimeout(() => setCopiedIndex(null), 2000);
+                              }}
+                            >
+                              {copiedIndex === index ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{copiedIndex === index ? "Copiado" : "Copiar"}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
                   </div>
-                  {message.role === "user" && (
-                    <Avatar Icon={User} />
-                  )}
+                  {message.role === "user" && <Avatar Icon={User} />}
                 </div>
               ))}
+
               {isLoading && (
-                 <div className="flex items-start gap-4">
-                    <Avatar Icon={Bot} />
-                    <div className="rounded-lg px-4 py-3 max-w-xl bg-card border flex items-center">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        <span>Generating...</span>
-                    </div>
-                 </div>
+                <div className="flex items-start gap-4">
+                  <Avatar Icon={Bot} />
+                  <div className="rounded-lg px-4 py-3 max-w-xl bg-card border flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Generando...</span>
+                  </div>
+                </div>
               )}
             </div>
           </ScrollArea>
