@@ -361,6 +361,19 @@ export default function Home() {
           </div>
           <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
             <div className="space-y-6">
+              {selectedOptimizer && (
+                <Card className="bg-muted/40 border-dashed">
+                  <CardHeader className="p-4">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-muted-foreground" />
+                      {selectedOptimizer.name}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {selectedOptimizer.description}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <Sparkles className="w-12 h-12 mb-4" />
