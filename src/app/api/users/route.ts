@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, email, role, company, password } = body || {};
+    const { name, email, role, company, password, avatarUrl } = body || {};
 
     if (!email || !name || !role || !company) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       displayName: name,
       password: finalPassword,
       disabled,
+      photoURL: typeof avatarUrl === 'string' ? avatarUrl : undefined,
     });
 
     // Set custom claims
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       email,
       role,
       company,
+      ...(avatarUrl ? { avatarUrl } : {}),
       authDisabled: disabled,
       createdAt: new Date().toISOString(),
     }, { merge: true });
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, email, role, company, disable } = body || {};
+    const { id, name, email, role, company, disable, avatarUrl } = body || {};
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     const app = getFirebaseAdminApp();
@@ -65,6 +67,9 @@ export async function PUT(req: NextRequest) {
     if (typeof name === 'string') updateAuth.displayName = name;
     if (typeof email === 'string') updateAuth.email = email;
     if (typeof disable === 'boolean') updateAuth.disabled = disable;
+    if (typeof avatarUrl === 'string' && avatarUrl) {
+      updateAuth.photoURL = avatarUrl;
+    }
     if (Object.keys(updateAuth).length > 0) {
       await auth.updateUser(id, updateAuth);
     }
@@ -80,6 +85,7 @@ export async function PUT(req: NextRequest) {
     if (typeof email === 'string') updateFs.email = email;
     if (typeof role === 'string') updateFs.role = role;
     if (typeof company === 'string') updateFs.company = company;
+    if (typeof avatarUrl === 'string') updateFs.avatarUrl = avatarUrl;
     if (typeof disable === 'boolean') updateFs.authDisabled = disable;
     if (Object.keys(updateFs).length > 0) {
       await db.collection('appUsers').doc(id).set(updateFs, { merge: true });

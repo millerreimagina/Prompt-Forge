@@ -43,4 +43,5 @@ export type AppUser = {
   email: string;
   role: 'member' | 'admin';
   company: 'Reimagina' | 'Trend Riders' | 'Personal';
+  avatarUrl?: string;
 };

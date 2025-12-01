@@ -1,12 +1,5 @@
 import { Firestore, collection, doc, getDoc, getDocs } from 'firebase/firestore';
-
-export type AppUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: 'member' | 'admin';
-  company: 'Reimagina' | 'Trend Riders' | 'Personal';
-};
+import type { AppUser } from '@/lib/types';
 
 export async function getUsers(db: Firestore): Promise<AppUser[]> {
   const snap = await getDocs(collection(db, 'appUsers'));

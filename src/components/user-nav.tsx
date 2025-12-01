@@ -22,27 +22,58 @@ export function UserNav() {
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
   const auth = useAuth();
   const [email, setEmail] = React.useState<string | null>(null);
+  const [photoURL, setPhotoURL] = React.useState<string | null>(null);
+  const [cacheBust, setCacheBust] = React.useState<number>(0);
   const router = useRouter();
 
   React.useEffect(() => {
     if (!auth) return;
-    const unsub = onAuthStateChanged(auth, (u) => setEmail(u?.email ?? null));
-    return () => unsub();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setEmail(u?.email ?? null);
+      setPhotoURL(u?.photoURL ?? null);
+      setCacheBust(Date.now());
+    });
+    const handler = () => {
+      const u = auth.currentUser;
+      setPhotoURL(u?.photoURL ?? null);
+      setCacheBust(Date.now());
+    };
+    window.addEventListener('auth-profile-updated', handler as EventListener);
+    return () => {
+      window.removeEventListener('auth-profile-updated', handler as EventListener);
+      unsub();
+    };
   }, [auth]);
+
+  // Also bump cache when the url string changes
+  React.useEffect(() => {
+    if (photoURL) setCacheBust(Date.now());
+  }, [photoURL]);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {userAvatar && <Image
-              src={userAvatar.imageUrl}
-              alt={userAvatar.description}
-              width={36}
-              height={36}
-              data-ai-hint={userAvatar.imageHint}
-              className="rounded-full"
-            />}
+            {photoURL ? (
+              <AvatarImage
+                key={cacheBust}
+                src={`${photoURL}${photoURL.includes('?') ? '&' : '?'}v=${cacheBust}`}
+                alt="User avatar"
+                onError={() => setCacheBust(Date.now())}
+              />
+            ) : (
+              userAvatar && (
+                <Image
+                  src={userAvatar.imageUrl}
+                  alt={userAvatar.description}
+                  width={36}
+                  height={36}
+                  data-ai-hint={userAvatar.imageHint}
+                  className="rounded-full"
+                />
+              )
+            )}
             <AvatarFallback>U</AvatarFallback>
           </Avatar>
         </Button>

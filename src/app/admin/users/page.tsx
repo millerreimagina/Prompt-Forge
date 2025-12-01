@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { AppUser, deleteUsers, getUsers } from '@/lib/users-service';
+import { deleteUsers, getUsers } from '@/lib/users-service';
+import type { AppUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle, Search, Trash2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,7 +136,16 @@ export default function UsersAdminPage() {
               <Card className={cn('flex flex-col h-full transition-shadow hover:shadow-lg', isSelected && 'ring-2 ring-primary')}>
                 <CardHeader>
                   <div className="flex justify-between items-start pl-8">
-                    <CardTitle>{u.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        {u.avatarUrl ? (
+                          <AvatarImage src={u.avatarUrl} alt={u.name} />
+                        ) : (
+                          <AvatarFallback>{(u.name?.[0] || 'U').toUpperCase()}</AvatarFallback>
+                        )}
+                      </Avatar>
+                      <CardTitle>{u.name}</CardTitle>
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
