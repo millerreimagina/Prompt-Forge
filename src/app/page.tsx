@@ -1,13 +1,3 @@
-  if (checkingAuth) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <span className="text-sm text-muted-foreground">Checking session…</span>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
 "use client";
 
 import * as React from "react";
@@ -305,9 +295,15 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <Header />
-      <main className="flex flex-1 overflow-hidden">
+    <>
+      {checkingAuth ? (
+        <div className="flex h-screen items-center justify-center">
+          <span className="text-sm text-muted-foreground">Checking session…</span>
+        </div>
+      ) : !user ? null : (
+        <div className="flex flex-col h-screen bg-background">
+          <Header />
+          <main className="flex flex-1 overflow-hidden">
         <aside className="w-80 border-r bg-card hidden md:flex flex-col">
           <div className="p-4 border-b">
             <h2 className="text-lg font-semibold tracking-tight">Organizations</h2>
@@ -556,8 +552,10 @@ export default function Home() {
               </Tooltip>
             </form>
           </div>
+          </div>
+          </main>
         </div>
-      </main>
-    </div>
+      )}
+    </>
   );
 }
