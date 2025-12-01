@@ -26,8 +26,8 @@ export default function OptimizerPage() {
           organization: 'Personal',
           model: {
             provider: 'OpenAI',
-            model: 'gpt-5-mini',
-            temperature: 0.7,
+            model: 'gpt-4o',
+            temperature: 1,
             maxTokens: 1024,
             topP: 1,
           },

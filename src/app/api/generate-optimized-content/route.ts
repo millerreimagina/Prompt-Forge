@@ -57,9 +57,7 @@ export async function POST(req: NextRequest) {
     const modelId = resolveModelId(optimizer.model.provider, optimizer.model.model);
     const system = buildSystemPrompt(optimizer.systemPrompt, optimizer.knowledgeBase || []);
 
-    const temperature = (provider === 'openai' && optimizer.model.model === 'gpt-5-mini')
-      ? 1
-      : optimizer.model.temperature;
+    const temperature = optimizer.model.temperature;
 
     const genkitConfig: Record<string, any> = {
       temperature,
@@ -101,14 +99,17 @@ export async function POST(req: NextRequest) {
             { role: 'user', content: userInput },
           ],
           temperature: 1, // enforce for gpt-5-mini per requirement; kept for simplicity
-          max_completion_tokens: optimizer.model.maxTokens,
+          max_tokens: optimizer.model.maxTokens,
         } as any);
 
         if (process.env.NODE_ENV !== 'production') {
           console.log('[OpenAI raw completion]', JSON.stringify(completion, null, 2));
         }
 
-        text = completion?.choices?.[0]?.message?.content ?? '';
+        // Try multiple shapes from OpenAI SDK just in case
+        text = completion?.choices?.[0]?.message?.content
+          ?? (completion as any)?.choices?.[0]?.text
+          ?? '';
       } catch (e) {
         if (process.env.NODE_ENV !== 'production') {
           console.error('[OpenAI fallback error]', e);
@@ -117,7 +118,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (!text || !text.trim()) {
-      return NextResponse.json({ error: 'No content generated.' }, { status: 502 });
+      // Return a graceful minimal response instead of an error to avoid leaking raw error JSON into chat
+      const friendly = 'No pude generar contenido con los parámetros actuales. Intenta reformular tu mensaje o prueba de nuevo.';
+      return NextResponse.json({ optimizedContent: friendly });
     }
 
     return NextResponse.json({ optimizedContent: text });

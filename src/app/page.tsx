@@ -4,7 +4,7 @@ import * as React from "react";
 import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -483,13 +483,20 @@ export default function Home() {
               className="relative"
             >
               <Label htmlFor="message" className="sr-only">Message</Label>
-              <Input
+              <Textarea
                 id="message"
-                placeholder={selectedOptimizer ? `Ask ${selectedOptimizer.name}...` : "Select an optimizer first"}
+                placeholder={selectedOptimizer ? `Escribe a ${selectedOptimizer.name}... (Shift+Enter para salto de línea)` : "Selecciona un optimizer primero"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const form = (e.currentTarget as HTMLTextAreaElement).form;
+                    if (form) form.requestSubmit();
+                  }
+                }}
                 disabled={!selectedOptimizer || isLoading}
-                className="pr-16"
+                className="pr-16 min-h-[44px]"
               />
               <Tooltip>
                 <TooltipTrigger asChild>

@@ -98,8 +98,8 @@ export default function AdminDashboard() {
 
   const handleToggleStatus = async (optimizer: Optimizer) => {
     if (!firestore) return;
-    const newStatus = optimizer.status === 'Published' ? 'Draft' : 'Published';
-    const updatedOptimizer = { ...optimizer, status: newStatus };
+    const newStatus: Optimizer['status'] = optimizer.status === 'Published' ? 'Draft' : 'Published';
+    const updatedOptimizer: Optimizer = { ...optimizer, status: newStatus };
     try {
       await saveOptimizer(firestore, updatedOptimizer);
       setOptimizers(prev => prev.map(opt => opt.id === optimizer.id ? updatedOptimizer : opt));
@@ -115,6 +115,35 @@ export default function AdminDashboard() {
       });
     }
   }
+
+  const handleDuplicate = async (optimizer: Optimizer) => {
+    if (!firestore) return;
+    const clone: Optimizer = {
+      ...optimizer,
+      id: '',
+      internalName: `${optimizer.internalName} (Copy)`,
+      name: `${optimizer.name} (Copy)`,
+      status: 'Draft',
+      knowledgeBase: [...(optimizer.knowledgeBase || [])],
+      generationParams: { ...(optimizer.generationParams || {}) },
+      guidedInputs: [...(optimizer.guidedInputs || [])],
+    };
+    try {
+      const newId = await saveOptimizer(firestore, clone);
+      const created: Optimizer = { ...clone, id: newId };
+      setOptimizers(prev => [created, ...prev]);
+      toast({
+        title: 'Optimizer Duplicated',
+        description: `"${optimizer.name}" was duplicated as Draft.`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Duplicate Failed',
+        description: 'Could not duplicate the optimizer.',
+      });
+    }
+  };
 
   const getOrganizationBadgeColor = (organization: Optimizer['organization']) => {
     switch (organization) {
@@ -182,6 +211,9 @@ export default function AdminDashboard() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleDuplicate(optimizer)}>
+                            Duplicate
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleToggleStatus(optimizer)}>
                             {optimizer.status === 'Published' ? (
                               <><FileDown className="mr-2 h-4 w-4" /> Unpublish</>
