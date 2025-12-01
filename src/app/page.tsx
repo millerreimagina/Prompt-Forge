@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check } from "lucide-react";
+import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import Header from "@/components/header";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -229,6 +229,29 @@ export default function Home() {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!firestore || !user || !selectedOptimizer) return;
+    try {
+      const msgsRef = collection(
+        firestore,
+        "users",
+        user.uid,
+        "optimizerChats",
+        selectedOptimizer.id,
+        "messages"
+      );
+      const snap = await getDocs(msgsRef);
+      if (!snap.empty) {
+        const batch = writeBatch(firestore);
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+      setMessages([]);
+    } catch (err) {
+      console.error("[Chat] clear failed", err);
+    }
+  };
+
   const handleOrganizationChange = (organization: Optimizer['organization'], checked: boolean) => {
     setSelectedOrganizations(prev => {
       if (checked) {
@@ -351,9 +374,25 @@ export default function Home() {
               </DropdownMenu>
             </div>
             {selectedOptimizer ? (
-              <div className="hidden md:block">
-                <h3 className="font-semibold text-lg">{selectedOptimizer.name}</h3>
-                <p className="text-sm text-muted-foreground">{selectedOptimizer.description}</p>
+              <div className="hidden md:flex items-start justify-between w-full">
+                <div>
+                  <h3 className="font-semibold text-lg">{selectedOptimizer.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedOptimizer.description}</p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearChat}
+                      disabled={messages.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Borrar chat
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Borra todos los mensajes de este chat</TooltipContent>
+                </Tooltip>
               </div>
             ) : (
               <div className="text-muted-foreground hidden md:block">Select an optimizer to start</div>
