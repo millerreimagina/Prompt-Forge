@@ -13,7 +13,7 @@ import type { Optimizer } from "@/lib/types";
 import Header from "@/components/header";
 import { cn } from "@/lib/utils";
 import { useAuth, useFirestore } from "@/firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged, type User as FirebaseUser, getIdTokenResult } from "firebase/auth";
 import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import {
   DropdownMenu,
@@ -54,6 +54,8 @@ export default function Home() {
   const auth = useAuth();
   const [user, setUser] = React.useState<FirebaseUser | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = React.useState<Optimizer['organization'][]>([]);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [userCompany, setUserCompany] = React.useState<Optimizer['organization'] | null>(null);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
 
 
@@ -65,10 +67,30 @@ export default function Home() {
     }
   }, [firestore]);
 
-  // Sign in with provided credentials (dev convenience)
+  // Sign in with provided credentials (dev convenience) and load claims
   React.useEffect(() => {
     if (!auth) return;
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        try {
+          const t = await getIdTokenResult(u, true);
+          const role = (t.claims?.role as string | undefined) || 'member';
+          const company = (t.claims?.company as Optimizer['organization'] | undefined) || null;
+          setIsAdmin(role === 'admin');
+          setUserCompany(company);
+          if (role !== 'admin' && company) {
+            setSelectedOrganizations([company]);
+          }
+        } catch {
+          setIsAdmin(false);
+          setUserCompany(null);
+        }
+      } else {
+        setIsAdmin(false);
+        setUserCompany(null);
+      }
+    });
     // attempt sign-in if not signed
     if (!auth.currentUser) {
       signInWithEmailAndPassword(auth, "walter.miller@gruporeimagina.com", "reimagina").catch((e) => {
@@ -257,6 +279,11 @@ export default function Home() {
   };
 
   const handleOrganizationChange = (organization: Optimizer['organization'], checked: boolean) => {
+    // Members are restricted to their own company
+    if (!isAdmin) {
+      if (userCompany) setSelectedOrganizations([userCompany]);
+      return;
+    }
     setSelectedOrganizations(prev => {
       if (checked) {
         return [...prev, organization];
@@ -274,12 +301,13 @@ export default function Home() {
           <div className="p-4 border-b">
             <h2 className="text-lg font-semibold tracking-tight">Organizations</h2>
             <div className="space-y-2 mt-3">
-              {ALL_ORGANIZATIONS.map(org => (
+              {(isAdmin ? ALL_ORGANIZATIONS : ALL_ORGANIZATIONS.filter(o => o === userCompany)).map(org => (
                 <div key={org} className="flex items-center space-x-2">
                   <Checkbox 
                     id={`org-${org}`}
                     checked={selectedOrganizations.includes(org)}
                     onCheckedChange={(checked) => handleOrganizationChange(org, !!checked)}
+                    disabled={!isAdmin}
                   />
                   <Label htmlFor={`org-${org}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     {org}

@@ -16,11 +16,13 @@ import Link from "next/link";
 import { useAuth } from "@/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 export function UserNav() {
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
   const auth = useAuth();
   const [email, setEmail] = React.useState<string | null>(null);
+  const router = useRouter();
 
   React.useEffect(() => {
     if (!auth) return;
@@ -61,7 +63,12 @@ export function UserNav() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {email ? (
-          <DropdownMenuItem onClick={() => signOut(auth)}>
+          <DropdownMenuItem
+            onClick={async () => {
+              await signOut(auth);
+              router.push('/login');
+            }}
+          >
             Log out
           </DropdownMenuItem>
         ) : (

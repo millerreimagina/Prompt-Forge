@@ -5,7 +5,7 @@ export type AppUser = {
   name: string;
   email: string;
   role: 'member' | 'admin';
-  company: 'Reimagina' | 'Trend Riders';
+  company: 'Reimagina' | 'Trend Riders' | 'Personal';
 };
 
 export async function getUsers(db: Firestore): Promise<AppUser[]> {

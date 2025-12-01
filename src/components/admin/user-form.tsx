@@ -70,6 +70,7 @@ export function UserForm({ user }: { user: AppUser }) {
                 <SelectContent>
                   <SelectItem value="Reimagina">Reimagina</SelectItem>
                   <SelectItem value="Trend Riders">Trend Riders</SelectItem>
+                  <SelectItem value="Personal">Personal</SelectItem>
                 </SelectContent>
               </Select>
             </div>

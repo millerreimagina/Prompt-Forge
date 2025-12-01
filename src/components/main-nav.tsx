@@ -3,9 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import * as React from "react";
+import { useAuth } from "@/firebase";
+import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
 
 export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
+  const auth = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const t = await getIdTokenResult(u, true);
+        setIsAdmin(t.claims?.role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsub();
+  }, [auth]);
 
   const routes = [
     {
@@ -13,16 +35,20 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
       label: "Chat",
       active: pathname === `/`,
     },
-    {
-      href: `/admin`,
-      label: "Admin",
-      active: pathname.startsWith(`/admin`),
-    },
-    {
-      href: `/admin/users`,
-      label: "Users",
-      active: pathname.startsWith(`/admin/users`),
-    },
+    ...(isAdmin
+      ? [
+          {
+            href: `/admin`,
+            label: "Admin",
+            active: pathname.startsWith(`/admin`),
+          },
+          {
+            href: `/admin/users`,
+            label: "Users",
+            active: pathname.startsWith(`/admin/users`),
+          },
+        ]
+      : []),
   ];
 
   return (
