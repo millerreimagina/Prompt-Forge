@@ -289,7 +289,7 @@ export default function Home() {
             <p className="text-sm text-muted-foreground mt-1">Select a profile for your task</p>
           </div>
           <ScrollArea className="flex-1">
-            <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} value={Object.keys(optimizersByCategory)} className="w-full px-4">
+            <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} className="w-full px-4">
               {Object.entries(optimizersByCategory).map(([category, optimizers]) => (
                 <AccordionItem value={category} key={category}>
                   <AccordionTrigger className="text-sm font-medium hover:no-underline">{category}</AccordionTrigger>
