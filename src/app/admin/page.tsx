@@ -184,6 +184,9 @@ export default function AdminDashboard() {
                 New Optimizer
               </Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/users">Users</Link>
+            </Button>
           </div>
         </div>
         

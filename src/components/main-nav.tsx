@@ -18,6 +18,11 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
       label: "Admin",
       active: pathname.startsWith(`/admin`),
     },
+    {
+      href: `/admin/users`,
+      label: "Users",
+      active: pathname.startsWith(`/admin/users`),
+    },
   ];
 
   return (

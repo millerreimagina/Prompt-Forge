@@ -35,3 +35,11 @@ export type Optimizer = {
     required: boolean;
   }[];
 };
+
+export type AppUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'member' | 'admin';
+  company: 'Reimagina' | 'Trend Riders';
+};
