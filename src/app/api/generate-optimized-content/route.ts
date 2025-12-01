@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     const optimizer: Optimizer | undefined = body?.optimizer;
     const userInput: string = body?.userInput ?? '';
     const historyRaw: any[] = Array.isArray(body?.history) ? body.history : [];
+    const attachment: { name?: string; type?: string; size?: number; text?: string } | undefined = body?.attachment;
 
     const history: Array<{ role: 'user' | 'assistant'; content: string }> = historyRaw
       .map((m) => ({ role: (m?.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant', content: String(m?.content ?? '') }))
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const provider = (optimizer.model.provider || '').toLowerCase();
     const modelId = resolveModelId(optimizer.model.provider, optimizer.model.model);
-    const system = buildSystemPrompt(optimizer.systemPrompt, optimizer.knowledgeBase || []);
+    let system = buildSystemPrompt(optimizer.systemPrompt, optimizer.knowledgeBase || []);
 
     const temperature = optimizer.model.temperature;
 
@@ -75,15 +76,39 @@ export async function POST(req: NextRequest) {
 
     let genkitResult: any | null = null;
     try {
+      const attachTxtRaw = typeof attachment?.text === 'string' ? attachment.text : '';
+      const attachName = attachment?.name || 'attachment';
+      // Cap attachment to avoid huge prompts
+      const ATTACH_CAP = 10000; // characters
+      const attachTxt = attachTxtRaw ? attachTxtRaw.slice(0, ATTACH_CAP) : '';
+
       const conversationPrefix = history
         .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n');
 
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Attachment]', {
+          name: attachName,
+          type: attachment?.type,
+          size: attachment?.size,
+          textLen: attachTxt.length,
+        });
+      }
+
+      // If there is an attachment, reinforce instructions in the system prompt
+      if (attachTxt) {
+        system = `${system}\n\nYou may receive an attached file inline in the prompt, indicated by a block starting with [Attached file: <name>]. Treat that block as the full textual contents of the attached file and analyze or reference it as requested.`.trim();
+      }
+
       const { output } = await ai.generate({
         model: modelId,
-        prompt: conversationPrefix
-          ? `${conversationPrefix}\nUser: ${userInput}\nAssistant:`
-          : userInput,
+        prompt: (() => {
+          const attachBlock = attachTxt ? `\n[Attached file: ${attachName}]\n${attachTxt}\n` : '';
+          if (conversationPrefix) {
+            return `${conversationPrefix}${attachBlock}\nUser: ${userInput}\nAssistant:`;
+          }
+          return `${attachBlock}${userInput}`;
+        })(),
         system,
         config: genkitConfig,
       });
@@ -104,10 +129,15 @@ export async function POST(req: NextRequest) {
     if ((!text || !text.trim()) && provider === 'openai') {
       try {
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const attachTxtRaw = typeof attachment?.text === 'string' ? attachment.text : '';
+        const attachName = attachment?.name || 'attachment';
+        const ATTACH_CAP = 10000;
+        const attachTxt = attachTxtRaw ? attachTxtRaw.slice(0, ATTACH_CAP) : '';
         const completion = await openai.chat.completions.create({
           model: optimizer.model.model, // e.g., 'gpt-5-mini' or others
           messages: [
             ...(system ? [{ role: 'system', content: system as string }] : []),
+            ...(attachTxt ? [{ role: 'user', content: `Attached file: ${attachName}\n${attachTxt}` as string }] : []),
             ...history.map((m) => ({ role: m.role, content: m.content } as { role: 'user' | 'assistant'; content: string })),
             { role: 'user', content: userInput },
           ],

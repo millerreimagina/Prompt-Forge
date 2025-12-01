@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check, Trash2 } from "lucide-react";
+import { Bot, CornerDownLeft, User, Sparkles, Loader2, ChevronsUpDown, Copy, Check, Trash2, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,9 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [userCompany, setUserCompany] = React.useState<Optimizer['organization'] | null>(null);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+  const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
+  const [attachmentText, setAttachmentText] = React.useState<string>("");
+  const [attachError, setAttachError] = React.useState<string | null>(null);
 
 
   React.useEffect(() => {
@@ -193,6 +196,14 @@ export default function Home() {
           optimizer: selectedOptimizer,
           userInput: input,
           history: messages.slice(-historyLen),
+          attachment: attachmentText
+            ? {
+                name: attachmentFile?.name,
+                type: attachmentFile?.type,
+                size: attachmentFile?.size,
+                text: attachmentText,
+              }
+            : undefined,
         }),
       });
 
@@ -253,6 +264,10 @@ export default function Home() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Clear attachment after send
+      setAttachmentFile(null);
+      setAttachmentText("");
+      setAttachError(null);
     }
   };
 
@@ -517,6 +532,63 @@ export default function Home() {
           </ScrollArea>
 
           <div className="border-t p-4">
+            {/* Attachment preview & picker */}
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="flex items-center gap-2 min-h-[28px]">
+                {attachmentFile && (
+                  <div className="flex items-center gap-2 text-sm rounded-md border px-2 py-1 bg-card">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span className="max-w-[220px] truncate">{attachmentFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setAttachmentFile(null); setAttachmentText(""); setAttachError(null); }}
+                      className="inline-flex items-center justify-center rounded hover:bg-muted p-1"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                {attachError && (
+                  <span className="text-xs text-destructive">{attachError}</span>
+                )}
+              </div>
+              <div>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer select-none px-2 py-1 border rounded-md hover:bg-muted">
+                  <Paperclip className="h-3.5 w-3.5" /> Adjuntar
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="text/plain,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.log,.xml,.yml,.yaml"
+                    onChange={async (e) => {
+                      setAttachError(null);
+                      const f = e.target.files?.[0] || null;
+                      if (!f) return;
+                      const MAX = 5 * 1024 * 1024; // 5MB
+                      if (f.size > MAX) {
+                        setAttachError('El archivo supera 5MB.');
+                        e.currentTarget.value = '';
+                        return;
+                      }
+                      try {
+                        // Only process text-like files to ensure the model receives meaningful content
+                        const isTextLike = f.type.startsWith('text/') || /\.(txt|md|markdown|json|csv|tsv|html?|log|xml|ya?ml)$/i.test(f.name);
+                        if (!isTextLike) {
+                          setAttachError('Tipo de archivo no soportado para lectura de texto. Usa TXT, MD, CSV, JSON, HTML, LOG, XML, YAML.');
+                          e.currentTarget.value = '';
+                          return;
+                        }
+                        const text = await f.text();
+                        setAttachmentFile(f);
+                        setAttachmentText(text);
+                      } catch (err) {
+                        setAttachError('No se pudo leer el archivo.');
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
             <form
               onSubmit={handleSendMessage}
               className="relative"
