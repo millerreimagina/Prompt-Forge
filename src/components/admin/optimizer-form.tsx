@@ -43,7 +43,13 @@ const availableModels = [
     { provider: 'Custom', model: 'custom' },
 ];
 
-const availableCategories = ['Social Media', 'Image Generation', 'SEO', 'Marketing'];
+const availableCategories = [
+  'Generación de Imágenes',
+  'Generación de Videos',
+  'Redes Sociales',
+  'General',
+  'Otros',
+];
 const availableOrganizations: Optimizer['organization'][] = ['Reimagina', 'Trend Riders', 'Personal'];
 
 type GuidedInput = Optimizer['guidedInputs'][0];
