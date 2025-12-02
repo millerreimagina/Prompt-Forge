@@ -232,6 +232,16 @@ export async function POST(req: NextRequest) {
           },
           { merge: true }
         );
+
+        // Also write granular usage log for date-range and per-optimizer aggregations
+        const optimizerId = String(body?.optimizer?.id || 'unknown');
+        await db.collection('usageLogs').add({
+          uid,
+          optimizerId,
+          tokens: estimatedTokens,
+          requests: 1,
+          createdAt: FieldValue.serverTimestamp(),
+        });
       }
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {

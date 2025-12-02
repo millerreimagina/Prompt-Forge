@@ -44,14 +44,18 @@ export async function GET(req: NextRequest) {
 
     const startDate = parseDateParam(startStr) || defaultStart;
     const endDate = parseDateParam(endStr) || now;
+    // Normalize to cover the full end day by using an exclusive upper bound (start of next day)
+    const endExclusive = new Date(endDate);
+    endExclusive.setHours(0, 0, 0, 0);
+    endExclusive.setDate(endExclusive.getDate() + 1);
 
-    const startTs = Timestamp.fromDate(startDate);
-    const endTs = Timestamp.fromDate(endDate);
+    const startTs = Timestamp.fromDate(new Date(new Date(startDate).setHours(0,0,0,0)));
+    const endTsExclusive = Timestamp.fromDate(endExclusive);
 
     const logsSnap = await db
       .collection('usageLogs')
       .where('createdAt', '>=', startTs)
-      .where('createdAt', '<=', endTs)
+      .where('createdAt', '<', endTsExclusive)
       .get();
 
     const byUser = new Map<string, { totalTokens: number; totalRequests: number }>();
