@@ -189,9 +189,13 @@ export default function Home() {
 
     try {
       const historyLen = selectedOptimizer?.generationParams?.historyMessages ?? 10;
+      const idToken = user ? await user.getIdToken() : undefined;
       const res = await fetch("/api/generate-optimized-content", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({
           optimizer: selectedOptimizer,
           userInput: input,

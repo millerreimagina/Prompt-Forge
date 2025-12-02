@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 import type { Optimizer } from '@/lib/types';
 import OpenAI from 'openai';
+import { getFirebaseAdminApp } from '@/firebase/firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 function resolveModelId(provider: string, model: string) {
   const p = (provider || '').toLowerCase();
@@ -46,6 +49,24 @@ function extractTextRobust(output: any): string | null {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    // Verify Firebase ID token if provided
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    let uid: string | null = null;
+    try {
+      if (authHeader.startsWith('Bearer ')) {
+        const idToken = authHeader.slice('Bearer '.length).trim();
+        if (idToken) {
+          const app = getFirebaseAdminApp();
+          const token = await getAuth(app).verifyIdToken(idToken);
+          uid = token.uid || null;
+        }
+      }
+    } catch (e) {
+      // Non-fatal: continue without uid if verification fails
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Usage] ID token verification failed:', e);
+      }
+    }
     const optimizer: Optimizer | undefined = body?.optimizer;
     const userInput: string = body?.userInput ?? '';
     const historyRaw: any[] = Array.isArray(body?.history) ? body.history : [];
@@ -164,6 +185,38 @@ export async function POST(req: NextRequest) {
       // Return a graceful minimal response instead of an error to avoid leaking raw error JSON into chat
       const friendly = 'No pude generar contenido con los parámetros actuales. Intenta reformular tu mensaje o prueba de nuevo.';
       return NextResponse.json({ optimizedContent: friendly });
+    }
+
+    // Estimate token usage and record per-user usage (best-effort)
+    try {
+      if (uid) {
+        const app = getFirebaseAdminApp();
+        const db = getFirestore(app);
+        const attachTxtRaw = typeof body?.attachment?.text === 'string' ? body.attachment.text : '';
+        const ATTACH_CAP = 10000;
+        const attachTxt = attachTxtRaw ? attachTxtRaw.slice(0, ATTACH_CAP) : '';
+        const history: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(body?.history)
+          ? body.history.map((m: any) => ({ role: (m?.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant', content: String(m?.content ?? '') }))
+          : [];
+        const conversationPrefix = history.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+        const system: string = buildSystemPrompt(body?.optimizer?.systemPrompt ?? '', body?.optimizer?.knowledgeBase ?? []);
+        const prompt = `${system}\n${conversationPrefix}\n${attachTxt}\n${body?.userInput ?? ''}`;
+        const estimatedTokens = Math.ceil((prompt.length + text.length) / 4); // rough approx: 4 chars per token
+
+        const usageRef = db.doc(`users/${uid}/metrics/usage`);
+        await usageRef.set(
+          {
+            totalTokens: FieldValue.increment(estimatedTokens),
+            totalRequests: FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Usage] Failed to record usage:', e);
+      }
     }
 
     return NextResponse.json({ optimizedContent: text });
