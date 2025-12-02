@@ -6,6 +6,8 @@ import { getFirebaseAdminApp } from '@/firebase/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+const DEBUG = process.env.DEBUG_OPT === '1';
+
 function resolveModelId(provider: string, model: string) {
   const p = (provider || '').toLowerCase();
   if (p === 'openai') return `openai/${model}`;
@@ -87,12 +89,21 @@ export async function POST(req: NextRequest) {
 
     const temperature = optimizer.model.temperature;
 
+    const requestedMax = Number(optimizer.model.maxTokens ?? 0) || 0;
+    const safeMax = Math.max(1, Math.min(requestedMax || 512, 4096));
+
     const genkitConfig: Record<string, any> = {
       temperature,
-      maxOutputTokens: optimizer.model.maxTokens,
+      maxOutputTokens: safeMax,
     };
     if (provider !== 'openai') {
       genkitConfig.topP = optimizer.model.topP;
+    }
+
+    if (DEBUG) {
+      console.log('[Gen] provider/model', { provider, modelId, rawModel: optimizer.model.model });
+      console.log('[Gen] config', { temperature, requestedMax, usingMax: safeMax, topP: genkitConfig.topP });
+      console.log('[Gen] OPENAI key present?', !!process.env.OPENAI_API_KEY);
     }
 
     let genkitResult: any | null = null;
@@ -135,7 +146,7 @@ export async function POST(req: NextRequest) {
       });
       genkitResult = output;
     } catch (e) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== 'production' || DEBUG) {
         console.error('[Genkit error]', e);
       }
     }
@@ -145,10 +156,16 @@ export async function POST(req: NextRequest) {
     }
 
     let text = extractTextRobust(genkitResult);
+    if (DEBUG && (!text || !text.trim())) {
+      try { console.log('[Gen] no text from Genkit, output shape keys', genkitResult && Object.keys(genkitResult)); } catch {}
+    }
 
     // Fallback: direct OpenAI Chat Completions if Genkit didn’t return text
     if ((!text || !text.trim()) && provider === 'openai') {
       try {
+        if (DEBUG && !process.env.OPENAI_API_KEY) {
+          console.warn('[OpenAI] Missing OPENAI_API_KEY');
+        }
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const attachTxtRaw = typeof attachment?.text === 'string' ? attachment.text : '';
         const attachName = attachment?.name || 'attachment';
@@ -166,7 +183,7 @@ export async function POST(req: NextRequest) {
           max_tokens: optimizer.model.maxTokens,
         } as any);
 
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== 'production' || DEBUG) {
           console.log('[OpenAI raw completion]', JSON.stringify(completion, null, 2));
         }
 
@@ -175,7 +192,7 @@ export async function POST(req: NextRequest) {
           ?? (completion as any)?.choices?.[0]?.text
           ?? '';
       } catch (e) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== 'production' || DEBUG) {
           console.error('[OpenAI fallback error]', e);
         }
       }
@@ -184,6 +201,9 @@ export async function POST(req: NextRequest) {
     if (!text || !text.trim()) {
       // Return a graceful minimal response instead of an error to avoid leaking raw error JSON into chat
       const friendly = 'No pude generar contenido con los parámetros actuales. Intenta reformular tu mensaje o prueba de nuevo.';
+      if (DEBUG) {
+        console.warn('[Gen] returning friendly fallback, no text produced');
+      }
       return NextResponse.json({ optimizedContent: friendly });
     }
 
