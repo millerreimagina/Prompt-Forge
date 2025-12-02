@@ -581,7 +581,7 @@ export default function Home() {
                   <input
                     type="file"
                     className="hidden"
-                    accept="text/plain,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.log,.xml,.yml,.yaml,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                    accept="text/plain,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.log,.xml,.yml,.yaml"
                     onChange={async (e) => {
                       setAttachError(null);
                       const f = e.target.files?.[0] || null;
@@ -594,41 +594,12 @@ export default function Home() {
                       }
                       try {
                         const isTextLike = f.type.startsWith('text/') || /\.(txt|md|markdown|json|csv|tsv|html?|log|xml|ya?ml)$/i.test(f.name);
-                        const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
-                        const isDocx = f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || /\.docx$/i.test(f.name);
-
-                        let text = '';
-                        if (isTextLike) {
-                          text = await f.text();
-                        } else if (isPdf) {
-                          const arr = await f.arrayBuffer();
-                          const pdfjs = await import('pdfjs-dist/build/pdf');
-                          // @ts-ignore
-                          const workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                          // @ts-ignore
-                          pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-                          // @ts-ignore
-                          const doc = await pdfjs.getDocument({ data: arr }).promise;
-                          const numPages = doc.numPages || 0;
-                          const parts: string[] = [];
-                          for (let p = 1; p <= numPages; p++) {
-                            const page = await doc.getPage(p);
-                            const content = await page.getTextContent();
-                            const pageText = content.items.map((it: any) => (it.str || '')).join(' ');
-                            parts.push(pageText);
-                          }
-                          text = parts.join('\n');
-                        } else if (isDocx) {
-                          const arr = await f.arrayBuffer();
-                          const mammoth = await import('mammoth/mammoth.browser');
-                          const result = await mammoth.convertToHtml({ arrayBuffer: arr });
-                          const html = (result && (result as any).value) || '';
-                          text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                        } else {
-                          setAttachError('Tipo de archivo no soportado. Usa TXT, MD, CSV, JSON, HTML, LOG, XML, YAML, PDF o DOCX.');
+                        if (!isTextLike) {
+                          setAttachError('Tipo de archivo no soportado. Usa TXT, MD, CSV, JSON, HTML, LOG, XML o YAML.');
                           e.currentTarget.value = '';
                           return;
                         }
+                        const text = await f.text();
                         setAttachmentFile(f);
                         setAttachmentText(text);
                       } catch (err) {
