@@ -15,21 +15,23 @@ export default function OptimizerPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
         setIsAdmin(false);
+        setUid(null);
         setChecking(false);
-        router.replace('/');
+        router.replace('/login');
         return;
       }
       try {
+        setUid(u.uid);
         const token = await getIdTokenResult(u, true);
         const admin = token.claims?.role === 'admin';
         setIsAdmin(admin);
-        if (!admin) router.replace('/');
       } finally {
         setChecking(false);
       }
@@ -85,7 +87,13 @@ export default function OptimizerPage() {
     );
   }
 
-  if (!isAdmin) return null;
+  // Members are allowed; non-admins will be restricted by ownership below
+
+  // If not admin and editing existing, ensure ownership
+  if (optimizer && optimizer.id && optimizer.id !== '' && !isAdmin && uid && optimizer.createdBy && optimizer.createdBy !== uid) {
+    router.replace('/admin');
+    return null;
+  }
 
   if (optimizer === undefined) {
     return (

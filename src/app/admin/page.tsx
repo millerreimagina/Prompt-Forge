@@ -31,29 +31,31 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const auth = useAuth();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
         setIsAdmin(false);
+        setUid(null);
         setChecking(false);
-        router.replace("/");
+        router.replace("/login");
         return;
       }
       try {
+        setUid(u.uid);
         const token = await getIdTokenResult(u, true);
         const admin = token.claims?.role === "admin";
         setIsAdmin(admin);
-        if (!admin) router.replace("/");
       } finally {
         setChecking(false);
       }
@@ -76,14 +78,19 @@ export default function AdminDashboard() {
   }, [firestore]);
 
   const filteredOptimizers = useMemo(() => {
-    if (!searchTerm) {
-      return optimizers;
+    let list = optimizers;
+    // If not admin, only show optimizers created by the current user
+    if (!isAdmin && uid) {
+      list = list.filter(o => o.createdBy === uid);
     }
-    return optimizers.filter(optimizer => 
-      optimizer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      optimizer.description.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!searchTerm) {
+      return list;
+    }
+    return list.filter(optimizer => 
+      (optimizer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (optimizer.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm, optimizers]);
+  }, [searchTerm, optimizers, isAdmin, uid]);
 
   const handleSelectOptimizer = (optimizerId: string, isSelected: boolean) => {
     if (isSelected) {
@@ -156,6 +163,9 @@ export default function AdminDashboard() {
       knowledgeBase: [...(optimizer.knowledgeBase || [])],
       generationParams: { ...(optimizer.generationParams || {}) },
       guidedInputs: [...(optimizer.guidedInputs || [])],
+      createdBy: uid || optimizer.createdBy,
+      createdByName: auth?.currentUser?.displayName || optimizer.createdByName,
+      createdByEmail: auth?.currentUser?.email || optimizer.createdByEmail,
     };
     try {
       const newId = await saveOptimizer(firestore, clone);
@@ -191,7 +201,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!isAdmin) return null;
+  // Members are allowed; just restrict visibility above
 
   return (
     <>
@@ -281,6 +291,11 @@ export default function AdminDashboard() {
                         <Badge className={cn("border-transparent", getOrganizationBadgeColor(optimizer.organization))}>
                           {optimizer.organization}
                         </Badge>
+                        {optimizer.createdByEmail || optimizer.createdByName ? (
+                          <Badge variant="secondary" title={optimizer.createdByEmail || optimizer.createdByName}>
+                            By {optimizer.createdByName || optimizer.createdByEmail}
+                          </Badge>
+                        ) : null}
                       </div>
                   </CardHeader>
                   <CardContent className="flex-grow">

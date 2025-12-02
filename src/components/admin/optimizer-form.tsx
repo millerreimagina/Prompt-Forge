@@ -29,6 +29,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFirestore } from "@/firebase";
 import { saveOptimizer, uploadKnowledgeBaseFile } from "@/lib/optimizers-service";
+import { useAuth } from "@/firebase";
+import { serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 const availableModels = [
@@ -59,6 +61,7 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const router = useRouter();
+  const auth = useAuth();
 
   const [testInput, setTestInput] = useState("");
   const [testResult, setTestResult] = useState<{ aiResponse: string; fullPrompt: string } | null>(null);
@@ -146,7 +149,18 @@ export function OptimizerForm({ optimizer }: { optimizer: Optimizer }) {
     if (!firestore) return;
     setIsSaving(true);
     try {
-      const savedId = await saveOptimizer(firestore, formData);
+      let payload: Optimizer = formData;
+      if (!formData.id) {
+        const u = auth?.currentUser || null;
+        payload = {
+          ...formData,
+          createdBy: u?.uid,
+          createdByName: u?.displayName || undefined,
+          createdByEmail: u?.email || undefined,
+          createdAt: serverTimestamp() as any,
+        };
+      }
+      const savedId = await saveOptimizer(firestore, payload);
       setFormData(prev => ({...prev, id: savedId}));
       toast({
         title: "Optimizer Saved",

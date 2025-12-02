@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import type { Optimizer } from "@/lib/types";
@@ -63,6 +64,7 @@ export default function Home() {
   const [attachmentFile, setAttachmentFile] = React.useState<File | null>(null);
   const [attachmentText, setAttachmentText] = React.useState<string>("");
   const [attachError, setAttachError] = React.useState<string | null>(null);
+  const [optimizerQuery, setOptimizerQuery] = React.useState<string>("");
 
 
   React.useEffect(() => {
@@ -113,13 +115,22 @@ export default function Home() {
     return published.filter(opt => selectedOrganizations.includes(opt.organization));
   }, [allOptimizers, selectedOrganizations]);
 
+  const visibleOptimizers = React.useMemo(() => {
+    const q = optimizerQuery.trim().toLowerCase();
+    if (!q) return filteredOptimizers;
+    return filteredOptimizers.filter(opt =>
+      (opt.name && opt.name.toLowerCase().includes(q)) ||
+      (opt.description && opt.description.toLowerCase().includes(q))
+    );
+  }, [filteredOptimizers, optimizerQuery]);
+
   React.useEffect(() => {
-    if (filteredOptimizers.length > 0 && !filteredOptimizers.some(opt => opt.id === selectedOptimizer?.id)) {
-      setSelectedOptimizer(filteredOptimizers[0]);
-    } else if (filteredOptimizers.length === 0) {
+    if (visibleOptimizers.length > 0 && !visibleOptimizers.some(opt => opt.id === selectedOptimizer?.id)) {
+      setSelectedOptimizer(visibleOptimizers[0]);
+    } else if (visibleOptimizers.length === 0) {
       setSelectedOptimizer(null);
     }
-  }, [filteredOptimizers, selectedOptimizer]);
+  }, [visibleOptimizers, selectedOptimizer]);
 
   // Subscribe to messages for current user + optimizer
   React.useEffect(() => {
@@ -149,7 +160,7 @@ export default function Home() {
   }, [firestore, user, selectedOptimizer]);
 
   const optimizersByCategory = React.useMemo(() => {
-    return filteredOptimizers.reduce((acc, optimizer) => {
+    return visibleOptimizers.reduce((acc, optimizer) => {
       const { category } = optimizer;
       if (!acc[category]) {
         acc[category] = [];
@@ -157,7 +168,7 @@ export default function Home() {
       acc[category].push(optimizer);
       return acc;
     }, {} as Record<string, Optimizer[]>);
-  }, [filteredOptimizers]);
+  }, [visibleOptimizers]);
 
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   
@@ -345,6 +356,13 @@ export default function Home() {
           <div className="p-4">
             <h2 className="text-xl font-semibold tracking-tight">Optimizers</h2>
             <p className="text-sm text-muted-foreground mt-1">Select a profile for your task</p>
+            <div className="mt-3">
+              <Input
+                placeholder="Buscar optimizers..."
+                value={optimizerQuery}
+                onChange={(e) => setOptimizerQuery(e.target.value)}
+              />
+            </div>
           </div>
           <ScrollArea className="flex-1">
             <Accordion type="multiple" defaultValue={Object.keys(optimizersByCategory)} className="w-full px-4">
@@ -563,7 +581,7 @@ export default function Home() {
                   <input
                     type="file"
                     className="hidden"
-                    accept="text/plain,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.log,.xml,.yml,.yaml"
+                    accept="text/plain,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.log,.xml,.yml,.yaml,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
                     onChange={async (e) => {
                       setAttachError(null);
                       const f = e.target.files?.[0] || null;
@@ -575,14 +593,42 @@ export default function Home() {
                         return;
                       }
                       try {
-                        // Only process text-like files to ensure the model receives meaningful content
                         const isTextLike = f.type.startsWith('text/') || /\.(txt|md|markdown|json|csv|tsv|html?|log|xml|ya?ml)$/i.test(f.name);
-                        if (!isTextLike) {
-                          setAttachError('Tipo de archivo no soportado para lectura de texto. Usa TXT, MD, CSV, JSON, HTML, LOG, XML, YAML.');
+                        const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+                        const isDocx = f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || /\.docx$/i.test(f.name);
+
+                        let text = '';
+                        if (isTextLike) {
+                          text = await f.text();
+                        } else if (isPdf) {
+                          const arr = await f.arrayBuffer();
+                          const pdfjs = await import('pdfjs-dist/build/pdf');
+                          // @ts-ignore
+                          const workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                          // @ts-ignore
+                          pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+                          // @ts-ignore
+                          const doc = await pdfjs.getDocument({ data: arr }).promise;
+                          const numPages = doc.numPages || 0;
+                          const parts: string[] = [];
+                          for (let p = 1; p <= numPages; p++) {
+                            const page = await doc.getPage(p);
+                            const content = await page.getTextContent();
+                            const pageText = content.items.map((it: any) => (it.str || '')).join(' ');
+                            parts.push(pageText);
+                          }
+                          text = parts.join('\n');
+                        } else if (isDocx) {
+                          const arr = await f.arrayBuffer();
+                          const mammoth = await import('mammoth/mammoth.browser');
+                          const result = await mammoth.convertToHtml({ arrayBuffer: arr });
+                          const html = (result && (result as any).value) || '';
+                          text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                        } else {
+                          setAttachError('Tipo de archivo no soportado. Usa TXT, MD, CSV, JSON, HTML, LOG, XML, YAML, PDF o DOCX.');
                           e.currentTarget.value = '';
                           return;
                         }
-                        const text = await f.text();
                         setAttachmentFile(f);
                         setAttachmentText(text);
                       } catch (err) {

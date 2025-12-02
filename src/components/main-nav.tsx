@@ -11,19 +11,23 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
   const pathname = usePathname();
   const auth = useAuth();
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [isSignedIn, setIsSignedIn] = React.useState(false);
 
   React.useEffect(() => {
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
         setIsAdmin(false);
+        setIsSignedIn(false);
         return;
       }
       try {
         const t = await getIdTokenResult(u, true);
         setIsAdmin(t.claims?.role === "admin");
+        setIsSignedIn(true);
       } catch {
         setIsAdmin(false);
+        setIsSignedIn(true);
       }
     });
     return () => unsub();
@@ -35,13 +39,17 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
       label: "Chat",
       active: pathname === `/`,
     },
-    ...(isAdmin
+    ...(isSignedIn
       ? [
           {
             href: `/admin`,
             label: "Admin",
             active: pathname.startsWith(`/admin`),
           },
+        ]
+      : []),
+    ...(isAdmin
+      ? [
           {
             href: `/admin/users`,
             label: "Users",

@@ -7,6 +7,11 @@ export type Optimizer = {
   status: 'Published' | 'Draft';
   category: string;
   organization: 'Reimagina' | 'Trend Riders' | 'Personal';
+  // Creator metadata
+  createdBy?: string; // uid of creator
+  createdByName?: string;
+  createdByEmail?: string;
+  createdAt?: any;
   model: {
     provider: string;
     model: string;
