@@ -1,7 +1,13 @@
 "use client";
 import * as React from "react";
 import { useAuth } from "@/firebase";
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +39,21 @@ export default function LoginPage() {
       router.push("/");
     } catch (e: any) {
       setError(e?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogleSignIn = async () => {
+    if (!auth) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      router.push("/");
+    } catch (e: any) {
+      setError(e?.message || "Google sign-in failed");
     } finally {
       setLoading(false);
     }
@@ -89,6 +110,9 @@ export default function LoginPage() {
                 <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="button" variant="outline" onClick={onGoogleSignIn} disabled={loading} className="w-full">
+                {loading ? "Signing in..." : "Continue with Google"}
+              </Button>
               <div className="flex gap-2">
                 <Button type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
                 <Button type="button" variant="outline" onClick={() => router.push("/")}>Cancel</Button>
