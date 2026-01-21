@@ -7,6 +7,13 @@ import * as React from "react";
 import { useAuth } from "@/firebase";
 import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
 
+const ADMIN_EMAILS = [
+  "alexandra.ramirez@gruporeimagina.com",
+  "walter.miller@gruporeimagina.com",
+  "mikaela.bedregal@gruporeimagina.com",
+  "soporte@gruporeimagina.com",
+];
+
 export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
   const auth = useAuth();
@@ -23,10 +30,13 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
       }
       try {
         const t = await getIdTokenResult(u, true);
-        setIsAdmin(t.claims?.role === "admin");
+        const byClaim = t.claims?.role === "admin";
+        const byEmail = !!u.email && ADMIN_EMAILS.includes(u.email);
+        setIsAdmin(byClaim || byEmail);
         setIsSignedIn(true);
       } catch {
-        setIsAdmin(false);
+        const byEmail = !!u.email && ADMIN_EMAILS.includes(u.email);
+        setIsAdmin(byEmail);
         setIsSignedIn(true);
       }
     });

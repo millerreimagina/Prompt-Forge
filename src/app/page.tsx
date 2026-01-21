@@ -249,26 +249,30 @@ export default function Home() {
 
       // Persist to Firestore if signed-in
       if (firestore && user) {
-        const basePath = collection(
-          firestore,
-          "users",
-          user.uid,
-          "optimizerChats",
-          selectedOptimizer.id,
-          "messages"
-        );
-        // user message
-        await addDoc(basePath, {
-          role: userMessage.role,
-          content: userMessage.content,
-          createdAt: serverTimestamp(),
-        });
-        // assistant message
-        await addDoc(basePath, {
-          role: assistantMessage.role,
-          content: assistantMessage.content,
-          createdAt: serverTimestamp(),
-        });
+        try {
+          const basePath = collection(
+            firestore,
+            "users",
+            user.uid,
+            "optimizerChats",
+            selectedOptimizer.id,
+            "messages"
+          );
+          // user message
+          await addDoc(basePath, {
+            role: userMessage.role,
+            content: userMessage.content,
+            createdAt: serverTimestamp(),
+          });
+          // assistant message
+          await addDoc(basePath, {
+            role: assistantMessage.role,
+            content: assistantMessage.content,
+            createdAt: serverTimestamp(),
+          });
+        } catch (persistError) {
+          console.error("[Chat] persist failed", persistError);
+        }
       }
     } catch (error) {
       console.error("Error generating content:", error);

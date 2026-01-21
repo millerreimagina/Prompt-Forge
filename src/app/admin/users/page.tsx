@@ -29,6 +29,13 @@ import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
 
+const ADMIN_EMAILS = [
+  'alexandra.ramirez@gruporeimagina.com',
+  'walter.miller@gruporeimagina.com',
+  'mikaela.bedregal@gruporeimagina.com',
+  'soporte@gruporeimagina.com',
+];
+
 export default function UsersAdminPage() {
   const auth = useAuth();
   const router = useRouter();
@@ -46,7 +53,9 @@ export default function UsersAdminPage() {
       }
       try {
         const token = await getIdTokenResult(u, true);
-        const admin = token.claims?.role === 'admin';
+        const byClaim = token.claims?.role === 'admin';
+        const byEmail = !!u.email && ADMIN_EMAILS.includes(u.email);
+        const admin = byClaim || byEmail;
         setIsAdmin(admin);
         if (!admin) router.replace('/');
       } finally {

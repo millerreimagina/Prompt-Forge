@@ -3,12 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirestore } from '@/firebase';
-import { AppUser, getUser } from '@/lib/users-service';
+import type { AppUser } from '@/lib/types';
+import { getUser } from '@/lib/users-service';
 import { UserForm } from '@/components/admin/user-form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
+
+const ADMIN_EMAILS = [
+  'alexandra.ramirez@gruporeimagina.com',
+  'walter.miller@gruporeimagina.com',
+  'mikaela.bedregal@gruporeimagina.com',
+  'soporte@gruporeimagina.com',
+];
 
 export default function UserPage() {
   const auth = useAuth();
@@ -27,7 +35,9 @@ export default function UserPage() {
       }
       try {
         const token = await getIdTokenResult(u, true);
-        const admin = token.claims?.role === 'admin';
+        const byClaim = token.claims?.role === 'admin';
+        const byEmail = !!u.email && ADMIN_EMAILS.includes(u.email);
+        const admin = byClaim || byEmail;
         setIsAdmin(admin);
         if (!admin) router.replace('/');
       } finally {
